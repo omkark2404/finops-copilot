@@ -7,7 +7,7 @@ import { formatCurrency } from '@/lib/format'
 import { DollarSign, Plus } from 'lucide-react'
 
 export default function BudgetsPage() {
-  const [budgets, setBudgets] = useState<any[]>([])
+  const [budgets, setBudgets] = useState<Record<string, unknown>[]>([])
   const [name, setName] = useState('')
   const [amount, setAmount] = useState('')
   const [loading, setLoading] = useState(false)

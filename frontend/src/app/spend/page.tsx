@@ -18,9 +18,9 @@ export default function SpendPage() {
   const { datasetId } = useDataset()
   const [dimension, setDimension] = useState('service')
   const [granularity, setGranularity] = useState('daily')
-  const [trend, setTrend] = useState<any>(null)
-  const [breakdown, setBreakdown] = useState<any[]>([])
-  const [summary, setSummary] = useState<any>(null)
+  const [trend, setTrend] = useState<Record<string, unknown> | null>(null)
+  const [breakdown, setBreakdown] = useState<Record<string, unknown>[]>([])
+  const [summary, setSummary] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -87,7 +87,7 @@ export default function SpendPage() {
                   <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}K`} />
                   <Tooltip
                     contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-                    formatter={(v: any) => [formatCurrency(Number(v)), 'Billed Cost']}
+                    formatter={(v: number) => [formatCurrency(Number(v)), 'Billed Cost']}
                   />
                   <Area type="monotone" dataKey="billed_cost" stroke="#6366f1" fill="url(#grad1)" strokeWidth={2} />
                 </AreaChart>
@@ -107,7 +107,7 @@ export default function SpendPage() {
                     <YAxis type="category" dataKey="name" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} width={120} />
                     <Tooltip
                       contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-                      formatter={(v: any) => [formatCurrency(Number(v)), 'Cost']}
+                      formatter={(v: number) => [formatCurrency(Number(v)), 'Cost']}
                     />
                     <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
                       {breakdownData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
