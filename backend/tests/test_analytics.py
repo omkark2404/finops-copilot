@@ -12,6 +12,8 @@ from datetime import datetime, timedelta
 import tempfile
 import os
 
+from app.analytics import get_spend_summary, get_spend_trend, get_cost_drivers, get_resource_breakdown
+
 
 # ── SYNTHETIC TEST FIXTURE (labelled) ─────────────────────────────────────────
 
@@ -42,6 +44,22 @@ def make_synthetic_focus_df(n_days=60, n_services=3) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+@pytest.fixture
+def synthetic_parquet(monkeypatch):
+    df = make_synthetic_focus_df(n_days=10, n_services=2)
+    fd, path = tempfile.mkstemp(suffix=".parquet")
+    os.close(fd)
+    df.to_parquet(path)
+    
+    # Mock _get_parquet_path to return our temp file
+    monkeypatch.setattr("app.analytics._get_parquet_path", lambda dataset_id: path)
+    
+    # We must ensure DuckDB can read it. DuckDB runs in the same process.
+    yield path
+    
+    os.remove(path)
+
+
 def test_synthetic_fixture_is_labelled():
     """Ensure the fixture is always labelled as synthetic."""
     df = make_synthetic_focus_df()
@@ -50,25 +68,35 @@ def test_synthetic_fixture_is_labelled():
     assert "SYNTHETIC" in make_synthetic_focus_df.__doc__
 
 
-def test_spend_aggregation_basic():
-    """Test basic spend aggregation logic."""
-    df = make_synthetic_focus_df(n_days=10, n_services=2)
-    total = df["billed_cost"].sum()
-    assert total > 0
-    assert isinstance(total, float)
+def test_get_spend_summary(synthetic_parquet):
+    """Test actual application logic for spend summary."""
+    summary = get_spend_summary("test_dataset_id")
+    assert summary.total_billed_cost > 0
+    assert summary.currency == "USD"
+    assert "service_0" in summary.service_breakdown
+    assert "service_1" in summary.service_breakdown
+    assert summary.service_breakdown["service_0"] > summary.service_breakdown["service_1"]
 
 
-def test_service_breakdown():
-    """Test service-level cost breakdown."""
-    df = make_synthetic_focus_df(n_days=10, n_services=3)
-    breakdown = df.groupby("service")["billed_cost"].sum()
-    assert len(breakdown) == 3
-    assert all(v > 0 for v in breakdown.values)
+def test_get_spend_trend(synthetic_parquet):
+    """Test actual application logic for spend trend computation."""
+    trend = get_spend_trend("test_dataset_id", granularity="daily")
+    assert len(trend.data_points) == 10
+    assert trend.data_points[0].billed_cost > 0
+    assert trend.granularity == "daily"
 
 
-def test_daily_trend():
-    """Test daily spend trend computation."""
-    df = make_synthetic_focus_df(n_days=14)
-    df["day"] = df["charge_period_start"].dt.date
-    daily = df.groupby("day")["billed_cost"].sum()
-    assert len(daily) == 14
+def test_get_cost_drivers(synthetic_parquet):
+    """Test actual application logic for finding top cost drivers."""
+    drivers = get_cost_drivers("test_dataset_id")
+    assert len(drivers.top_drivers) > 0
+    assert drivers.top_drivers[0].dimension in ["provider", "account", "service", "region"]
+    assert drivers.total_cost > 0
+
+
+def test_get_resource_breakdown(synthetic_parquet):
+    """Test actual application logic for dimension breakdown."""
+    breakdown = get_resource_breakdown("test_dataset_id", dimension="service")
+    assert len(breakdown) == 2
+    assert breakdown[0]["billed_cost"] > 0
+    assert breakdown[0]["row_count"] == 10
