@@ -14,11 +14,10 @@
 ## 1. Executive Summary & Problem Statement
 
 Cloud spending is among the fastest-growing operational expenses in modern engineering organizations, yet traditional cloud cost tools suffer from three fundamental flaws:
-1. **Opaque Aggregations**: Dashboards present high-level charts without providing actionable, statistically rigorous root-cause explanations.
+1. **Opaque Aggregations**: Dashboards present high-level charts without providing actionable root-cause explanations.
 2. **Proprietary Vendor Lock-In**: Billing data is fragmented across proprietary AWS Cost Explorer, Azure Cost Management, and GCP Billing formats.
-3. **Hallucinatory AI Chatbots**: Generative AI tools frequently invent numerical figures, produce ungrounded recommendations, or propose destructive modifications without evidence.
 
-**finops-copilot** addresses these challenges by implementing an open, deterministic FinOps decision-support platform built on the **FinOps Open Cost and Usage Specification (FOCUS)**.
+**finops-copilot** addresses these challenges by implementing an open FinOps decision-support platform built on the **FinOps Open Cost and Usage Specification (FOCUS)**.
 
 ### Core Operational Cycle
 ```text
@@ -29,11 +28,10 @@ OBSERVE → EXPLAIN → DETECT → DIAGNOSE → OPTIMIZE → ESTIMATE → VALIDA
 
 ## 2. Key Architecture Principles
 
-- **Deterministic Ground Truth**: All financial calculations, period-over-period attribution, statistical z-scores, and time-series forecasts are strictly computed using DuckDB SQL and deterministic Python algorithms. **The LLM never calculates numbers.**
+- **Deterministic Ground Truth**: All financial calculations, period-over-period attribution, statistical z-scores, and time-series forecasts are strictly computed using DuckDB SQL and Python algorithms.
 - **7-Stage Dependent Multi-Agent DAG**: An auditable agent chain where each stage receives structured Pydantic evidence contracts from upstream nodes, culminating in an independent Critic validation gate.
 - **Explainability Over Generation**: Google Gemini (`gemini-3.5-flash-lite` / `gemini-3.6-flash`) is utilized strictly for natural-language synthesis, root-cause narrative generation, and contextual risk explanations over pre-validated JSON evidence.
 - **LLM Failure Resilience**: The platform operates with zero downtime if external AI APIs are unreachable (`MockLLMProvider` mode ensures 100% offline functionality).
-- **Zero Synthetic Billing Data in Analytics**: Ingests and validates authentic, publicly available FOCUS 1.0/1.0.1 billing data exports.
 - **Human-in-the-Loop Safety**: As a pure decision-support platform, finops-copilot recommends and simulates actions—it never performs destructive resource shutdowns or deletions.
 - **Centralized Storage Abstraction**: High-performance Parquet datasets and DuckDB storage resolve under a configurable `DATA_DIR`, storing environment-agnostic relative keys in PostgreSQL.
 

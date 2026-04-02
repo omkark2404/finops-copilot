@@ -2,7 +2,6 @@
 Scenario Simulation Engine.
 
 What-if calculations — ALL deterministic.
-No LLM involvement in calculations.
 
 Critical distinction:
   ESTIMATED SAVINGS != REALIZED SAVINGS
