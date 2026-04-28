@@ -5,7 +5,7 @@ import { useDataset } from '@/lib/useDataset'
 import { Database } from 'lucide-react'
 
 export default function DatasetSelector() {
-  const [datasets, setDatasets] = useState<Record<string, unknown>[]>([])
+  const [datasets, setDatasets] = useState<any[]>([])
   const { datasetId, setDatasetId } = useDataset()
 
   useEffect(() => {

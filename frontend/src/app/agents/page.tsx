@@ -19,7 +19,7 @@ const AGENT_LABELS: Record<string, string> = {
 
 export default function AgentsPage() {
   const { datasetId } = useDataset()
-  const [result, setResult] = useState<Record<string, unknown> | null>(null)
+  const [result, setResult] = useState<any | null>(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -32,15 +32,13 @@ export default function AgentsPage() {
     try {
       const res = await api.runPipeline(datasetId)
       setResult(res)
-    } catch (e: unknown) {
-      setError(e.message)
-    } finally {
+    } catch (e: unknown) { setError((e as Error).message) } finally {
       setRunning(false)
     }
   }
 
-  const agentRuns = result?.agent_runs || []
-  const decision = result?.final_decision
+  const agentRuns = (result?.agent_runs as any[]) || []
+  const decision = result?.final_decision as any | undefined
 
   return (
     <Layout>
@@ -69,7 +67,7 @@ export default function AgentsPage() {
           <div className="section-title" style={{ marginBottom: 20 }}>Agent Dependency Graph</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 0, overflowX: 'auto', paddingBottom: 8 }}>
             {Object.entries(AGENT_LABELS).map(([key, label], i, arr) => {
-              const run = agentRuns.find((r: Record<string, unknown>) => r.agent_type === key)
+              const run = agentRuns.find((r: any) => r.agent_type === key)
               const status = run?.status || (running ? 'queued' : 'idle')
               const color = status === 'succeeded' ? 'var(--success)'
                 : status === 'failed' ? 'var(--danger)'
@@ -114,14 +112,14 @@ export default function AgentsPage() {
         {/* Agent Details */}
         {agentRuns.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-            {agentRuns.map((run: Record<string, unknown>) => (
+            {agentRuns.map((run: any) => (
               <div key={run.id} className="card" style={{ overflow: 'hidden' }}>
                 <div
                   onClick={() => setExpanded(expanded === run.id ? null : run.id)}
                   style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
                 >
-                  {run.status === 'succeeded' ? <CheckCircle size={16} style={{ color: 'var(--success)' }} />
-                    : run.status === 'failed' ? <XCircle size={16} style={{ color: 'var(--danger)' }} />
+                  {(run.status as string) === 'succeeded' ? <CheckCircle size={16} style={{ color: 'var(--success)' }} />
+                    : (run.status as string) === 'failed' ? <XCircle size={16} style={{ color: 'var(--danger)' }} />
                     : <Loader2 size={16} style={{ color: 'var(--accent)', animation: 'spin 1s linear infinite' }} />}
                   <div style={{ flex: 1 }}>
                     <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 13 }}>
@@ -169,15 +167,15 @@ export default function AgentsPage() {
 
         {/* Final Decision */}
         {decision && (
-          <div className="card" style={{ padding: 24, border: `1px solid ${decision.decision === 'APPROVE' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}` }}>
+          <div className="card" style={{ padding: 24, border: `1px solid ${(decision.decision as string) === 'APPROVE' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}` }}>
             <div className="section-title" style={{ marginBottom: 16 }}>Final Decision</div>
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              <span className={`badge badge-${decision.decision === 'APPROVE' ? 'pass' : decision.decision === 'REJECT' ? 'fail' : 'warn'}`} style={{ fontSize: 13, padding: '6px 14px' }}>
-                {decision.decision}
+              <span className={`badge badge-${(decision.decision as string) === 'APPROVE' ? 'pass' : (decision.decision as string) === 'REJECT' ? 'fail' : 'warn'}`} style={{ fontSize: 13, padding: '6px 14px' }}>
+                {(decision.decision as string)}
               </span>
               <div>
-                <p style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>{decision.rationale}</p>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Confidence: {(decision.confidence * 100).toFixed(0)}%</p>
+                <p style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>{(decision.rationale as string)}</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Confidence: {((decision.confidence as number) * 100).toFixed(0)}%</p>
               </div>
             </div>
           </div>

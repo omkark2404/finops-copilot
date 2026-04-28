@@ -10,7 +10,7 @@ import { AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react'
 
 export default function AnomaliesPage() {
   const { datasetId } = useDataset()
-  const [report, setReport] = useState<Record<string, unknown> | null>(null)
+  const [report, setReport] = useState<any | null>(null)
   const [entityType, setEntityType] = useState('service')
   const [loading, setLoading] = useState(false)
 
@@ -78,7 +78,7 @@ export default function AnomaliesPage() {
                 <th>Severity</th><th>Method</th><th>Confidence</th>
               </tr></thead>
               <tbody>
-                {anomalies.map((a: Record<string, unknown>) => (
+                {anomalies.map((a: any) => (
                   <tr key={a.id}>
                     <td>
                       <div style={{ color: 'var(--text-primary)', fontWeight: 500, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

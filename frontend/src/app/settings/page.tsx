@@ -7,15 +7,15 @@ import { useDataset } from '@/lib/useDataset'
 import { Settings, Upload, CheckCircle, Database, Trash2, AlertTriangle } from 'lucide-react'
 
 export default function SettingsPage() {
-  const [health, setHealth] = useState<Record<string, unknown> | null>(null)
-  const [datasets, setDatasets] = useState<Record<string, unknown>[]>([])
+  const [health, setHealth] = useState<any | null>(null)
+  const [datasets, setDatasets] = useState<any[]>([])
   const [datasetName, setDatasetName] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
 
   // Delete modal state
-  const [deletingDataset, setDeletingDataset] = useState<Record<string, unknown> | null>(null)
+  const [deletingDataset, setDeletingDataset] = useState<any | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   const { datasetId, setDatasetId } = useDataset()
@@ -51,8 +51,7 @@ export default function SettingsPage() {
       if (res.dataset_id) {
         setDatasetId(res.dataset_id)
       }
-    } catch (err: unknown) {
-      setMsg(`Error: ${err.message}`)
+    } catch (err: unknown) { setMsg(`Error: ${(err as Error).message}`)
     } finally {
       setUploading(false)
     }
@@ -79,8 +78,7 @@ export default function SettingsPage() {
           setDatasetId('')
         }
       }
-    } catch (err: unknown) {
-      setMsg(`Failed to delete dataset: ${err.message}`)
+    } catch (err: unknown) { setMsg(`Failed to delete dataset: ${(err as Error).message}`)
     } finally {
       setDeleting(false)
       setDeletingDataset(null)

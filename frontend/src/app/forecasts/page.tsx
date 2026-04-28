@@ -12,8 +12,8 @@ import { BarChart2 } from 'lucide-react'
 export default function ForecastsPage() {
   const { datasetId } = useDataset()
   const [horizon, setHorizon] = useState(30)
-  const [forecast, setForecast] = useState<Record<string, unknown> | null>(null)
-  const [trend, setTrend] = useState<Record<string, unknown> | null>(null)
+  const [forecast, setForecast] = useState<any | null>(null)
+  const [trend, setTrend] = useState<any | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -77,7 +77,7 @@ export default function ForecastsPage() {
           {loading && <div className="skeleton" style={{ height: 300, borderRadius: 8 }} />}
           {!loading && points.length > 0 && (
             <ResponsiveContainer width="100%" height={320}>
-              <AreaChart data={[...trendData, ...points.map((p: Record<string, unknown>) => ({ ...p, is_forecast: true }))]}>
+              <AreaChart data={[...trendData, ...points.map((p: any) => ({ ...p, is_forecast: true }))]}>
                 <defs>
                   <linearGradient id="gradActual" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />

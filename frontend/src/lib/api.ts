@@ -6,6 +6,14 @@ const client = axios.create({
   baseURL: BASE_URL,
 });
 
+export function setAuthToken(token: string) {
+  client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+}
+
+export function clearAuthToken() {
+  delete client.defaults.headers.common['Authorization'];
+}
+
 export const api = {
   spendSummary: async (datasetId: string) => (await client.get(`/spend/summary?dataset_id=${datasetId}`)).data,
   spendTrend: async (datasetId: string, granularity: string) => (await client.get(`/spend/trend?dataset_id=${datasetId}&granularity=${granularity}`)).data,
@@ -20,6 +28,7 @@ export const api = {
     } catch { return []; }
   },
   runAgents: async (datasetId: string) => (await client.post(`/agent-runs?dataset_id=${datasetId}`)).data,
+  runPipeline: async (datasetId: string) => (await client.post(`/agent-runs?dataset_id=${datasetId}`)).data,
   dataQuality: async (datasetId: string) => (await client.get(`/data-quality?dataset_id=${datasetId}`)).data,
   deleteDataset: async (datasetId: string) => (await client.delete(`/datasets/${datasetId}`)).data,
   costDrivers: async (datasetId: string) => (await client.get(`/spend/breakdown?dataset_id=${datasetId}`)).data,

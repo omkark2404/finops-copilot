@@ -18,9 +18,9 @@ export default function SpendPage() {
   const { datasetId } = useDataset()
   const [dimension, setDimension] = useState('service')
   const [granularity, setGranularity] = useState('daily')
-  const [trend, setTrend] = useState<Record<string, unknown> | null>(null)
-  const [breakdown, setBreakdown] = useState<Record<string, unknown>[]>([])
-  const [summary, setSummary] = useState<Record<string, unknown> | null>(null)
+  const [trend, setTrend] = useState<any | null>(null)
+  const [breakdown, setBreakdown] = useState<any[]>([])
+  const [summary, setSummary] = useState<any | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
