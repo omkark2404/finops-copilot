@@ -20,7 +20,13 @@ export const api = {
   anomalies: async (datasetId: string) => (await client.get(`/anomalies?dataset_id=${datasetId}`)).data,
   opportunities: async (datasetId: string) => (await client.get(`/opportunities?dataset_id=${datasetId}`)).data,
   forecasts: async (datasetId: string, days: number) => (await client.get(`/forecasts?dataset_id=${datasetId}&horizon_days=${days}`)).data,
-  datasets: async () => (await client.get('/datasets')).data,
+  ingestDataset: async (file: File, name: string) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    if (name) fd.append('name', name);
+    return (await client.post('/datasets/ingest', fd)).data;
+  },
+  listDatasets: async () => (await client.get('/datasets')).data.datasets,
   login: async (email: string, pass: string) => (await client.post('/auth/login', {email, password: pass})).data,
   agentRuns: async (datasetId: string) => {
     try {
