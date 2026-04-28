@@ -19,8 +19,7 @@ export default function LoginPage() {
       const { access_token } = await api.login(email, password)
       setAuthToken(access_token)
       router.push('/dashboard')
-    } catch (err: unknown) {
-      setError(err.message || 'Login failed')
+    } catch (err: unknown) { setError((err as Error).message || 'Login failed')
     } finally {
       setLoading(false)
     }

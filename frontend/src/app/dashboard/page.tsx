@@ -17,11 +17,11 @@ const COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8', '#4f46e5'
 
 export default function DashboardPage() {
   const { datasetId } = useDataset()
-  const [summary, setSummary] = useState<Record<string, unknown> | null>(null)
-  const [trend, setTrend] = useState<Record<string, unknown> | null>(null)
-  const [anomalies, setAnomalies] = useState<Record<string, unknown> | null>(null)
-  const [opportunities, setOpportunities] = useState<Record<string, unknown> | null>(null)
-  const [forecast, setForecast] = useState<Record<string, unknown> | null>(null)
+  const [summary, setSummary] = useState<any | null>(null)
+  const [trend, setTrend] = useState<any | null>(null)
+  const [anomalies, setAnomalies] = useState<any | null>(null)
+  const [opportunities, setOpportunities] = useState<any | null>(null)
+  const [forecast, setForecast] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -37,7 +37,7 @@ export default function DashboardPage() {
       api.forecasts(datasetId, 30).catch(() => null),
     ]).then(([s, t, a, o, f]) => {
       setSummary(s); setTrend(t); setAnomalies(a); setOpportunities(o); setForecast(f)
-    }).catch(e => setError(e.message)).finally(() => setLoading(false))
+    }).catch((e: Error) => setError(e.message)).finally(() => setLoading(false))
   }, [datasetId])
 
   const serviceData = summary ? Object.entries(summary.service_breakdown || {}).slice(0, 6).map(([k, v]) => ({ name: k, cost: v as number })) : []
@@ -194,7 +194,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <ResponsiveContainer width="100%" height={180}>
-                  <AreaChart data={[...trendData.slice(-14), ...forecastPoints.map((p: Record<string, unknown>) => ({ ...p, is_forecast: true }))]}>  
+                  <AreaChart data={[...trendData.slice(-14), ...forecastPoints.map((p: any) => ({ ...p, is_forecast: true }))]}>  
                     <defs>
                       <linearGradient id="gradForecast" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.25} />
@@ -229,7 +229,7 @@ export default function DashboardPage() {
                       <th>Entity</th><th>Deviation</th><th>Severity</th>
                     </tr></thead>
                     <tbody>
-                      {anomalies.anomalies.slice(0, 5).map((a: Record<string, unknown>) => (
+                      {anomalies.anomalies.slice(0, 5).map((a: any) => (
                         <tr key={a.id}>
                           <td style={{ color: 'var(--text-primary)', maxWidth: 140 }}>
                             <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -261,7 +261,7 @@ export default function DashboardPage() {
                 </div>
                 {opportunities?.opportunities?.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {opportunities.opportunities.slice(0, 4).map((o: Record<string, unknown>) => (
+                    {opportunities.opportunities.slice(0, 4).map((o: any) => (
                       <div key={o.id} className="card-elevated" style={{ padding: '12px 14px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                           <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500 }}>

@@ -9,7 +9,7 @@ import { Shield, CheckCircle, AlertTriangle, XCircle } from 'lucide-react'
 
 export default function DataQualityPage() {
   const { datasetId } = useDataset()
-  const [report, setReport] = useState<Record<string, unknown> | null>(null)
+  const [report, setReport] = useState<any | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
