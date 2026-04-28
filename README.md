@@ -1,4 +1,4 @@
-# finops-copilot
+﻿# finops-copilot
 
 > **Production-Grade FinOps Decision-Intelligence Platform** powered by FOCUS Billing Data, Deterministic Analytics, Machine Learning, and Multi-Agent Evidence Reasoning.
 
@@ -8,6 +8,14 @@
 [![FOCUS](https://img.shields.io/badge/Standard-FOCUS%201.0%20%2F%201.0.1-4285F4.svg?style=flat)](https://focus.finops.org)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg?style=flat&logo=python)](https://python.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+---
+
+## 🚀 Live Demo
+
+- **Frontend (Vercel)**: [https://finops-copilot-eta.vercel.app](https://finops-copilot-eta.vercel.app)
+- **Backend API (Render)**: [https://finops-copilot-backend.onrender.com](https://finops-copilot-backend.onrender.com)
+  *(Note: The root API URL returns {"detail":"Not Found"} by design. The frontend automatically communicates with the /api/ endpoints.)*
 
 ---
 
@@ -21,7 +29,7 @@ Cloud spending is among the fastest-growing operational expenses in modern engin
 
 ### Core Operational Cycle
 ```text
-OBSERVE → EXPLAIN → DETECT → DIAGNOSE → OPTIMIZE → ESTIMATE → VALIDATE → DECIDE
+OBSERVE â†’ EXPLAIN â†’ DETECT â†’ DIAGNOSE â†’ OPTIMIZE â†’ ESTIMATE â†’ VALIDATE â†’ DECIDE
 ```
 
 ---
@@ -32,7 +40,7 @@ OBSERVE → EXPLAIN → DETECT → DIAGNOSE → OPTIMIZE → ESTIMATE → VALIDA
 - **7-Stage Dependent Multi-Agent DAG**: An auditable agent chain where each stage receives structured Pydantic evidence contracts from upstream nodes, culminating in an independent Critic validation gate.
 - **Explainability Over Generation**: Google Gemini (`gemini-3.5-flash-lite` / `gemini-3.6-flash`) is utilized strictly for natural-language synthesis, root-cause narrative generation, and contextual risk explanations over pre-validated JSON evidence.
 - **LLM Failure Resilience**: The platform operates with zero downtime if external AI APIs are unreachable (`MockLLMProvider` mode ensures 100% offline functionality).
-- **Human-in-the-Loop Safety**: As a pure decision-support platform, finops-copilot recommends and simulates actions—it never performs destructive resource shutdowns or deletions.
+- **Human-in-the-Loop Safety**: As a pure decision-support platform, finops-copilot recommends and simulates actionsâ€”it never performs destructive resource shutdowns or deletions.
 - **Centralized Storage Abstraction**: High-performance Parquet datasets and DuckDB storage resolve under a configurable `DATA_DIR`, storing environment-agnostic relative keys in PostgreSQL.
 
 ---
@@ -88,19 +96,19 @@ Rather than using independent chatbots producing disconnected prose, finops-copi
 
 ```text
 [Data Quality Agent]          --> Validates schema integrity, null rates, and currency consistency
-        ↓
+        â†“
 [Cost Attribution Agent]      --> Computes top cost drivers and concentration scores (HHI)
-        ↓
+        â†“
 [Anomaly Investigation Agent] --> Investigates statistical spikes flagged by EWMA / Robust Z-Scores
-        ↓
+        â†“
 [Opportunity Agent]           --> Formulates optimization candidates from deterministic rule triggers
-        ↓
+        â†“
 [Optimization Agent]          --> Ranks actionable recommendations with risk levels and assumptions
-        ↓
+        â†“
 [Savings Agent]               --> Simulates projected impacts (strictly labelled ESTIMATED SAVINGS)
-        ↓
+        â†“
 [Critic / Validator Agent]    --> Enforces evidence checks, validates assumptions, prevents destructive actions
-        ↓
+        â†“
 [Final Decision]              --> Produces auditable, human-approvable recommendations with confidence scores
 ```
 
@@ -115,12 +123,12 @@ finops-copilot separates transactional application metadata from high-performanc
 
 ```text
 DATA_DIR/
-├── parquet/
-│   └── <dataset-id>/
-│       └── data.parquet       # Canonical columnar Parquet file
-├── uploads/
-│   └── <dataset-id>.csv       # Uploaded raw FOCUS billing files
-└── finops-copilot.duckdb          # Embedded DuckDB database
+â”œâ”€â”€ parquet/
+â”‚   â””â”€â”€ <dataset-id>/
+â”‚       â””â”€â”€ data.parquet       # Canonical columnar Parquet file
+â”œâ”€â”€ uploads/
+â”‚   â””â”€â”€ <dataset-id>.csv       # Uploaded raw FOCUS billing files
+â””â”€â”€ finops-copilot.duckdb          # Embedded DuckDB database
 ```
 
 ### Prototype Storage Notice
@@ -259,7 +267,7 @@ npm run build
 
 ## 12. License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License â€” see the [LICENSE](LICENSE) file for details.
 
 
 
