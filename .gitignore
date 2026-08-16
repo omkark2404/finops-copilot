@@ -1,0 +1,95 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.venv/
+venv/
+ENV/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Node.js / Next.js
+node_modules/
+.next/
+out/
+.nuxt/
+dist/
+.cache/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Data files (real billing data — never commit)
+data/focus_sample/*.parquet
+data/focus_sample/*.csv
+data/*.parquet
+data/*.csv
+
+# ML models (large binary files)
+backend/app/models/*.pkl
+backend/app/models/*.joblib
+*.pkl
+*.joblib
+
+# DuckDB files
+*.duckdb
+*.duckdb.wal
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# Logs
+logs/
+*.log
+
+# Local/generated databases and evaluation artifacts
+*.db
+*.sqlite
+*.sqlite3
+backend/data/parquet/
+data/parquet/
+data/focus_sample/FOCUS-Sample-Data/
