@@ -5,7 +5,7 @@ import { api, setAuthToken } from '@/lib/api'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('admin@cloudspend.local')
+  const [email, setEmail] = useState('admin@finops-copilot.local')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -51,7 +51,7 @@ export default function LoginPage() {
             <span style={{ fontSize: 24, color: '#fff', fontWeight: 800 }}>C</span>
           </div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
-            CloudSpend Intelligence
+            finops-copilot
           </h1>
           <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Sign in to your FinOps workspace</p>
         </div>
@@ -71,7 +71,7 @@ export default function LoginPage() {
               onChange={e => setEmail(e.target.value)}
               required
               style={{ width: '100%' }}
-              placeholder="admin@cloudspend.local"
+              placeholder="admin@finops-copilot.local"
             />
           </div>
           <div style={{ marginBottom: 24 }}>

@@ -1,4 +1,4 @@
-# CloudSpend Intelligence — Product Documentation
+# finops-copilot — Product Documentation
 
 ## 1. Problem Statement
 Modern multi-cloud environments generate massive billing datasets containing millions of line items. Engineering teams and FinOps analysts struggle to:
@@ -22,7 +22,7 @@ OBSERVE → EXPLAIN → DETECT → DIAGNOSE → OPTIMIZE → ESTIMATE → VALIDA
 - **Public FOCUS Specification Support**: Schema-aware ingestion for FOCUS 1.0 and 1.0.1.
 - **Deterministic Truth**: Every number originates from SQL or statistical algorithms — zero hallucinated financial figures.
 - **Auditable Agent Pipeline**: 7-stage agent reasoning pipeline with a dedicated Critic agent to prevent unsupported claims.
-- **Human-in-the-Loop Safety**: CloudSpend is a decision-support platform; it never automatically modifies or deletes production infrastructure.
+- **Human-in-the-Loop Safety**: finops-copilot is a decision-support platform; it never automatically modifies or deletes production infrastructure.
 
 ## 5. Non-Goals
 - Cloud resource execution/deletion (safety rule).

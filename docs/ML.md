@@ -1,4 +1,4 @@
-# CloudSpend Intelligence — Machine Learning & Statistical Methods
+# finops-copilot — Machine Learning & Statistical Methods
 
 ## 1. Anomaly Detection Engine
 

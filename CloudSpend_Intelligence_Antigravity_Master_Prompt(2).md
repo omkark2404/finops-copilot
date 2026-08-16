@@ -1,8 +1,8 @@
-# CloudSpend Intelligence — Antigravity Master Prompt
+# finops-copilot — Antigravity Master Prompt
 
 ## 1. Objective
 
-Build **CloudSpend Intelligence**, a production-quality FinOps / cloud-cost decision-intelligence platform using publicly available **FOCUS (FinOps Open Cost and Usage Specification)** billing data.
+Build **finops-copilot**, a production-quality FinOps / cloud-cost decision-intelligence platform using publicly available **FOCUS (FinOps Open Cost and Usage Specification)** billing data.
 
 It must be portfolio-grade, reproducible, interview-ready, and technically defensible.
 
@@ -12,7 +12,7 @@ Do **not** build a generic chatbot, an LLM-wrapped dashboard, disconnected agent
 
 ## 2. Core Product
 
-CloudSpend answers:
+finops-copilot answers:
 
 1. Where is technology spend going?
 2. Why did spend change?
@@ -174,7 +174,7 @@ flowchart LR
 Use this as the default:
 
 ```text
-cloudspend/
+finops-copilot/
 ├── frontend/
 │   ├── app/
 │   ├── components/
@@ -981,7 +981,7 @@ This is mandatory to avoid temporal leakage.
 
 # 34. Human-in-the-Loop
 
-CloudSpend is decision support.
+finops-copilot is decision support.
 
 Do NOT automatically:
 
@@ -1401,7 +1401,7 @@ The final repository should be small, clean, understandable, functional, reprodu
 
 ## Important: Do NOT train an LLM from scratch.
 
-CloudSpend should use different types of models for different jobs.
+finops-copilot should use different types of models for different jobs.
 
 ### A. Cost analytics
 
@@ -1643,7 +1643,7 @@ That distinction is fundamental to the quality of the project.
 
 ## Primary dataset/source
 
-CloudSpend must use **real publicly available FOCUS billing data**.
+finops-copilot must use **real publicly available FOCUS billing data**.
 
 Official sources:
 
@@ -1742,7 +1742,7 @@ Use this structure unless a better organization is genuinely justified:
 3. Badges
 4. Product overview
 5. Why this problem matters
-6. What CloudSpend does
+6. What finops-copilot does
 7. Key capabilities
 8. Architecture
 9. Architecture diagram
@@ -1792,7 +1792,7 @@ unless a claim is actually supported.
 
 Prefer concrete statements:
 
-> "CloudSpend ingests FOCUS-formatted billing data, computes deterministic cost attribution and anomaly signals, then passes structured evidence through a dependent agent pipeline to produce auditable optimization recommendations."
+> "finops-copilot ingests FOCUS-formatted billing data, computes deterministic cost attribution and anomaly signals, then passes structured evidence through a dependent agent pipeline to produce auditable optimization recommendations."
 
 ## README must explain the engineering decisions
 
@@ -1917,7 +1917,7 @@ Example:
 
 ```bash
 git clone <repository>
-cd cloudspend
+cd finops-copilot
 cp .env.example .env
 docker compose up --build
 ```

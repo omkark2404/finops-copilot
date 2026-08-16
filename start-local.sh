@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
 echo "======================================================================"
-echo "          CLOUDSPEND INTELLIGENCE — LOCAL NON-DOCKER STARTUP         "
+echo "          finops-copilot — LOCAL NON-DOCKER STARTUP         "
 echo "======================================================================"
 
 # 1. Load Root Environment File if present
@@ -51,7 +51,7 @@ FRONTEND_PID=""
 
 cleanup() {
     echo ""
-    echo "[*] Stopping CloudSpend local services..."
+    echo "[*] Stopping finops-copilot local services..."
     if [ -n "$BACKEND_PID" ]; then
         kill "$BACKEND_PID" 2>/dev/null || true
     fi
@@ -76,7 +76,7 @@ FRONTEND_PID=$!
 
 echo ""
 echo "======================================================================"
-echo "  CloudSpend Intelligence is running locally!"
+echo "  finops-copilot is running locally!"
 echo "  • Frontend:       http://localhost:3000"
 echo "  • Backend API:    http://localhost:8000"
 echo "  • API Docs:       http://localhost:8000/docs"

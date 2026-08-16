@@ -1,8 +1,8 @@
-# CloudSpend Intelligence — Architecture Documentation
+# finops-copilot — Architecture Documentation
 
 ## 1. Executive Architecture Summary
 
-CloudSpend Intelligence is a production-quality FinOps decision-intelligence platform built on a **modular monolith** architecture. It ingests FinOps Open Cost and Usage Specification (FOCUS) billing datasets, performs deterministic SQL/statistical analytics via DuckDB and scikit-learn/LightGBM, and streams evidence through a 7-agent dependent pipeline to produce auditable optimization recommendations.
+finops-copilot is a production-quality FinOps decision-intelligence platform built on a **modular monolith** architecture. It ingests FinOps Open Cost and Usage Specification (FOCUS) billing datasets, performs deterministic SQL/statistical analytics via DuckDB and scikit-learn/LightGBM, and streams evidence through a 7-agent dependent pipeline to produce auditable optimization recommendations.
 
 ---
 

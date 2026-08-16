@@ -1,5 +1,5 @@
 """
-Database setup for CloudSpend Intelligence.
+Database setup for finops-copilot.
 - PostgreSQL (async SQLAlchemy) for application state
 - DuckDB for analytical queries on billing data
 """

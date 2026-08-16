@@ -1,5 +1,5 @@
 """
-CloudSpend Intelligence — FastAPI Application Entry Point.
+finops-copilot — FastAPI Application Entry Point.
 """
 from __future__ import annotations
 from contextlib import asynccontextmanager
@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
             getattr(__import__('logging'), settings.log_level, 20)
         )
     )
-    log.info("Starting CloudSpend Intelligence", version=settings.version, env=settings.app_env)
+    log.info("Starting finops-copilot", version=settings.version, env=settings.app_env)
     await init_db()
     await _ensure_admin_user()
     log.info("Startup complete")
@@ -57,7 +57,7 @@ async def _ensure_admin_user():
 
 
 app = FastAPI(
-    title="CloudSpend Intelligence",
+    title="finops-copilot",
     description="FinOps / Cloud Cost Decision-Intelligence Platform",
     version="0.1.0",
     docs_url="/docs",

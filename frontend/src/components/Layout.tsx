@@ -60,7 +60,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>C</span>
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>CloudSpend</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>finops-copilot</div>
             <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500 }}>Intelligence</div>
           </div>
         </div>

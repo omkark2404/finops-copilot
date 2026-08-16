@@ -1,5 +1,5 @@
 """
-Centralized Persistent Storage Module for CloudSpend Intelligence (Prototype Storage).
+Centralized Persistent Storage Module for finops-copilot (Prototype Storage).
 
 All runtime analytics files (Parquet datasets, DuckDB database, uploads) resolve
 under the root DATA_DIR configuration (env var DATA_DIR).
@@ -65,7 +65,7 @@ def get_uploads_dir() -> Path:
 
 def get_duckdb_path() -> Path:
     """Return resolved DuckDB file path under DATA_DIR."""
-    return get_data_dir() / "cloudspend.duckdb"
+    return get_data_dir() / "finops-copilot.duckdb"
 
 
 def get_dataset_dir(dataset_id: str) -> Path:

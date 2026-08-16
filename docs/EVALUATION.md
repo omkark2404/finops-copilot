@@ -1,4 +1,4 @@
-# CloudSpend Intelligence — Evaluation Methodology
+# finops-copilot — Evaluation Methodology
 
 ## 1. Reproducible Evaluation Principles
 All evaluations are conducted against real FOCUS datasets using historical temporal splits to prevent data leakage.

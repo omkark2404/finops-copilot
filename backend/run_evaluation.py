@@ -1,5 +1,5 @@
 """
-Empirical Evaluation Runner for CloudSpend Intelligence.
+Empirical Evaluation Runner for finops-copilot.
 
 Runs end-to-end evaluation using REAL FOCUS billing data:
 - Ingestion & validation of official FOCUS dataset
@@ -33,7 +33,7 @@ from app.schemas import FocusVersion
 
 def evaluate_real_dataset():
     print("=" * 70)
-    print("  CLOUDSPEND INTELLIGENCE — EMPIRICAL EVALUATION  ")
+    print("  finops-copilot — EMPIRICAL EVALUATION  ")
     print("=" * 70)
 
     sample_path = Path(__file__).parent.parent / "data" / "focus_sample" / "FOCUS-Sample-Data" / "FOCUS-1.0" / "focus_sample.csv"

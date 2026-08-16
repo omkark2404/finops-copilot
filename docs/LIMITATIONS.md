@@ -1,9 +1,9 @@
-# CloudSpend Intelligence — Honest System Boundaries, Limitations & Future Roadmap
+# finops-copilot — Honest System Boundaries, Limitations & Future Roadmap
 
 ## 1. Current System Limitations & Boundaries
 
 ### 1.1 FOCUS Billing Data Scope (No Hypervisor Telemetry)
-- **Boundary**: CloudSpend ingests and analyzes FOCUS billing and cost data. It does not possess direct real-time agent/OS telemetry (e.g. CPU%, RAM%, disk IOPS).
+- **Boundary**: finops-copilot ingests and analyzes FOCUS billing and cost data. It does not possess direct real-time agent/OS telemetry (e.g. CPU%, RAM%, disk IOPS).
 - **Technical Honesty Rule**: The system flags candidates for investigation based on measurable cost and quantity divergences (e.g., *"Cost increased 45% while billed quantity remained constant"*), rather than making unsupported utilization assumptions (e.g., *"This instance is underutilized"*).
 
 ### 1.2 Estimated vs. Realized Savings
@@ -18,13 +18,13 @@
 - **Boundary**: The analytics engine utilizes in-process DuckDB with file locks. While exceptionally fast for single-node workloads (processing 100k+ rows in milliseconds), horizontal scaling across multiple web instances requires detached analytical compute.
 
 ### 1.5 Human-in-the-Loop Constraint
-- **Boundary**: CloudSpend is an auditable **decision-support system**. It deliberately does not execute automated, destructive cloud resource deletions or modifications.
+- **Boundary**: finops-copilot is an auditable **decision-support system**. It deliberately does not execute automated, destructive cloud resource deletions or modifications.
 
 ---
 
 ## 2. Future Upgradations & Production Roadmap
 
-To transition CloudSpend Intelligence from a high-performance prototype into a multi-tenant enterprise FinOps engine, the following upgrades are planned:
+To transition finops-copilot from a high-performance prototype into a multi-tenant enterprise FinOps engine, the following upgrades are planned:
 
 ```mermaid
 flowchart LR

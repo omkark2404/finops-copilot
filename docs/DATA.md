@@ -1,7 +1,7 @@
-# CloudSpend Intelligence — Data Provenance & Specification
+# finops-copilot — Data Provenance & Specification
 
 ## 1. Primary Specification: FOCUS
-CloudSpend Intelligence natively uses the **FinOps Open Cost and Usage Specification (FOCUS)** standard.
+finops-copilot natively uses the **FinOps Open Cost and Usage Specification (FOCUS)** standard.
 
 - **Specification URL**: https://focus.finops.org/
 - **Specification Repository**: https://github.com/FinOps-Open-Cost-and-Usage-Spec/FOCUS_Spec
@@ -34,7 +34,7 @@ Every raw FOCUS record is normalized into the canonical cost model:
 - `billing_period_start`, `billing_period_end`
 
 ## 3. Data Provenance & Validation
-At ingestion time, CloudSpend records:
+At ingestion time, finops-copilot records:
 - Source URL / provider origin
 - Content SHA-256 hash
 - Total row count & valid row count

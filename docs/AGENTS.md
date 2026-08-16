@@ -1,8 +1,8 @@
-# CloudSpend Intelligence — Multi-Agent Pipeline Documentation
+# finops-copilot — Multi-Agent Pipeline Documentation
 
 ## 1. Agent Architecture
 
-CloudSpend uses a 7-stage dependent pipeline where each agent receives structured Pydantic outputs from previous agents.
+finops-copilot uses a 7-stage dependent pipeline where each agent receives structured Pydantic outputs from previous agents.
 
 ```
 1. Data Quality Agent

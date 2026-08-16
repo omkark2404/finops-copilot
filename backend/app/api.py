@@ -1,5 +1,5 @@
 """
-CloudSpend Intelligence REST API.
+finops-copilot REST API.
 All routes return structured responses.
 All routes require authentication except /health.
 """

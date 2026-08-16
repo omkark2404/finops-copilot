@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class Settings(BaseSettings):
     postgres_host: str = "localhost"
     postgres_port: int = 5432
-    postgres_db: str = "cloudspend"
+    postgres_db: str = "finops-copilot"
     postgres_user: str = "postgres"
     postgres_password: str = "postgres"
 
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     data_dir: str = "./data"
     frontend_origin: Optional[str] = None
 
-    duckdb_path: str = "./data/cloudspend.duckdb"
+    duckdb_path: str = "./data/finops-copilot.duckdb"
     parquet_dir: str = "./data/parquet"
 
     gemini_api_key: Optional[str] = None
@@ -55,7 +55,7 @@ class Settings(BaseSettings):
 
         return origins
 
-    admin_email: str = "admin@cloudspend.local"
+    admin_email: str = "admin@finops-copilot.local"
     admin_password: str = "changeme"
     version: str = "0.1.0"
 
@@ -97,7 +97,7 @@ class Settings(BaseSettings):
             "localhost_sqlite",
             "sqlite",
         ):
-            return "sqlite+aiosqlite:///./data/cloudspend.db"
+            return "sqlite+aiosqlite:///./data/finops-copilot.db"
 
         return (
             f"postgresql+asyncpg://"
@@ -120,7 +120,7 @@ class Settings(BaseSettings):
             "localhost_sqlite",
             "sqlite",
         ):
-            return "sqlite:///./data/cloudspend.db"
+            return "sqlite:///./data/finops-copilot.db"
 
         if self.database_url_override:
             url = self.database_url_override.strip()

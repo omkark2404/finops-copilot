@@ -1,4 +1,4 @@
-# CloudSpend Intelligence
+# finops-copilot
 
 > **Production-Grade FinOps Decision-Intelligence Platform** powered by FOCUS Billing Data, Deterministic Analytics, Machine Learning, and Multi-Agent Evidence Reasoning.
 
@@ -18,7 +18,7 @@ Cloud spending is among the fastest-growing operational expenses in modern engin
 2. **Proprietary Vendor Lock-In**: Billing data is fragmented across proprietary AWS Cost Explorer, Azure Cost Management, and GCP Billing formats.
 3. **Hallucinatory AI Chatbots**: Generative AI tools frequently invent numerical figures, produce ungrounded recommendations, or propose destructive modifications without evidence.
 
-**CloudSpend Intelligence** addresses these challenges by implementing an open, deterministic FinOps decision-support platform built on the **FinOps Open Cost and Usage Specification (FOCUS)**.
+**finops-copilot** addresses these challenges by implementing an open, deterministic FinOps decision-support platform built on the **FinOps Open Cost and Usage Specification (FOCUS)**.
 
 ### Core Operational Cycle
 ```text
@@ -34,7 +34,7 @@ OBSERVE → EXPLAIN → DETECT → DIAGNOSE → OPTIMIZE → ESTIMATE → VALIDA
 - **Explainability Over Generation**: Google Gemini (`gemini-3.5-flash-lite` / `gemini-3.6-flash`) is utilized strictly for natural-language synthesis, root-cause narrative generation, and contextual risk explanations over pre-validated JSON evidence.
 - **LLM Failure Resilience**: The platform operates with zero downtime if external AI APIs are unreachable (`MockLLMProvider` mode ensures 100% offline functionality).
 - **Zero Synthetic Billing Data in Analytics**: Ingests and validates authentic, publicly available FOCUS 1.0/1.0.1 billing data exports.
-- **Human-in-the-Loop Safety**: As a pure decision-support platform, CloudSpend recommends and simulates actions—it never performs destructive resource shutdowns or deletions.
+- **Human-in-the-Loop Safety**: As a pure decision-support platform, finops-copilot recommends and simulates actions—it never performs destructive resource shutdowns or deletions.
 - **Centralized Storage Abstraction**: High-performance Parquet datasets and DuckDB storage resolve under a configurable `DATA_DIR`, storing environment-agnostic relative keys in PostgreSQL.
 
 ---
@@ -86,7 +86,7 @@ flowchart TB
 
 ## 4. Multi-Agent Pipeline & Decision DAG
 
-Rather than using independent chatbots producing disconnected prose, CloudSpend orchestrates a **dependent sequential DAG** governed by strict Pydantic schemas:
+Rather than using independent chatbots producing disconnected prose, finops-copilot orchestrates a **dependent sequential DAG** governed by strict Pydantic schemas:
 
 ```text
 [Data Quality Agent]          --> Validates schema integrity, null rates, and currency consistency
@@ -110,7 +110,7 @@ Rather than using independent chatbots producing disconnected prose, CloudSpend 
 
 ## 5. Prototype Storage Architecture & Missing Data Handling
 
-CloudSpend separates transactional application metadata from high-performance analytical storage:
+finops-copilot separates transactional application metadata from high-performance analytical storage:
 
 - **PostgreSQL**: Stores user records, dataset metadata, validation summaries, anomalies, recommendations, and relative object keys (`parquet/<dataset-id>/data.parquet`).
 - **Local Analytics Storage (`DATA_DIR`)**: Parquet billing datasets and DuckDB analytical files resolve under `DATA_DIR` (default: `./data/`).
@@ -122,7 +122,7 @@ DATA_DIR/
 │       └── data.parquet       # Canonical columnar Parquet file
 ├── uploads/
 │   └── <dataset-id>.csv       # Uploaded raw FOCUS billing files
-└── cloudspend.duckdb          # Embedded DuckDB database
+└── finops-copilot.duckdb          # Embedded DuckDB database
 ```
 
 ### Prototype Storage Notice
@@ -134,7 +134,7 @@ DATA_DIR/
 
 ## 6. Honest System Limitations & Boundaries
 
-To maintain technical rigor and integrity, CloudSpend explicitly documents its operational boundaries:
+To maintain technical rigor and integrity, finops-copilot explicitly documents its operational boundaries:
 
 | Limitation | Operational Reality | Architectural Reason |
 |---|---|---|
@@ -148,7 +148,7 @@ To maintain technical rigor and integrity, CloudSpend explicitly documents its o
 
 ## 7. Future Upgradations & Production Roadmap
 
-To scale CloudSpend Intelligence to enterprise multi-tenant deployments, the following architectural upgrades are mapped:
+To scale finops-copilot to enterprise multi-tenant deployments, the following architectural upgrades are mapped:
 
 ```mermaid
 flowchart LR
@@ -211,8 +211,8 @@ Evaluated against authentic FinOps Foundation FOCUS 1.0 Real Datasets:
 ### Option A: Local Non-Docker Startup (Recommended)
 ```bash
 # 1. Clone the repository
-git clone https://github.com/kg3478/Cloudspend_Intelligence.git
-cd Cloudspend_Intelligence
+git clone https://github.com/kg3478/finops-copilot_Intelligence.git
+cd finops-copilot_Intelligence
 
 # 2. Run the automated local setup script
 chmod +x start-local.sh
@@ -240,7 +240,7 @@ npm install
 npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser. Default admin credentials:
-- **Email**: `admin@cloudspend.local`
+- **Email**: `admin@finops-copilot.local`
 - **Password**: `changeme`
 
 ---
