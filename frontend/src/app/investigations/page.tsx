@@ -9,7 +9,7 @@ import { Search, AlertTriangle, ArrowRight } from 'lucide-react'
 
 export default function InvestigationsPage() {
   const { datasetId } = useDataset()
-  const [anomalies, setAnomalies] = useState<any>(null)
+  const [anomalies, setAnomalies] = useState<Record<string, unknown> | null>(null)
 
   useEffect(() => {
     if (!datasetId) return
@@ -34,7 +34,7 @@ export default function InvestigationsPage() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {anomalyList.slice(0, 5).map((a: any) => (
+            {anomalyList.slice(0, 5).map((a: Record<string, unknown>) => (
               <div key={a.id} className="card" style={{ padding: 24 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
                   <div>

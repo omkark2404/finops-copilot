@@ -17,11 +17,11 @@ const COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8', '#4f46e5'
 
 export default function DashboardPage() {
   const { datasetId } = useDataset()
-  const [summary, setSummary] = useState<any>(null)
-  const [trend, setTrend] = useState<any>(null)
-  const [anomalies, setAnomalies] = useState<any>(null)
-  const [opportunities, setOpportunities] = useState<any>(null)
-  const [forecast, setForecast] = useState<any>(null)
+  const [summary, setSummary] = useState<Record<string, unknown> | null>(null)
+  const [trend, setTrend] = useState<Record<string, unknown> | null>(null)
+  const [anomalies, setAnomalies] = useState<Record<string, unknown> | null>(null)
+  const [opportunities, setOpportunities] = useState<Record<string, unknown> | null>(null)
+  const [forecast, setForecast] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -141,7 +141,7 @@ export default function DashboardPage() {
                       tickFormatter={v => `$${(v / 1000).toFixed(0)}K`} />
                     <Tooltip
                       contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-                      formatter={(v: any) => [`$${Number(v).toLocaleString()}`, 'Billed Cost']}
+                      formatter={(v: number) => [`$${Number(v).toLocaleString()}`, 'Billed Cost']}
                     />
                     <Area type="monotone" dataKey="billed_cost" stroke="#6366f1" fill="url(#gradAccent)" strokeWidth={2} />
                   </AreaChart>
@@ -194,7 +194,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <ResponsiveContainer width="100%" height={180}>
-                  <AreaChart data={[...trendData.slice(-14), ...forecastPoints.map((p: any) => ({ ...p, is_forecast: true }))]}>  
+                  <AreaChart data={[...trendData.slice(-14), ...forecastPoints.map((p: Record<string, unknown>) => ({ ...p, is_forecast: true }))]}>  
                     <defs>
                       <linearGradient id="gradForecast" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.25} />
@@ -206,7 +206,7 @@ export default function DashboardPage() {
                     <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}K`} />
                     <Tooltip
                       contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-                      formatter={(v: any) => [`$${Number(v).toLocaleString()}`, 'Cost']}
+                      formatter={(v: number) => [`$${Number(v).toLocaleString()}`, 'Cost']}
                     />
                     <Area type="monotone" dataKey="billed_cost" stroke="#6366f1" fill="url(#gradAccent)" strokeWidth={2} />
                     <Area type="monotone" dataKey="predicted_cost" stroke="#8b5cf6" fill="url(#gradForecast)" strokeWidth={2} strokeDasharray="4 2" />
@@ -229,7 +229,7 @@ export default function DashboardPage() {
                       <th>Entity</th><th>Deviation</th><th>Severity</th>
                     </tr></thead>
                     <tbody>
-                      {anomalies.anomalies.slice(0, 5).map((a: any) => (
+                      {anomalies.anomalies.slice(0, 5).map((a: Record<string, unknown>) => (
                         <tr key={a.id}>
                           <td style={{ color: 'var(--text-primary)', maxWidth: 140 }}>
                             <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -261,7 +261,7 @@ export default function DashboardPage() {
                 </div>
                 {opportunities?.opportunities?.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {opportunities.opportunities.slice(0, 4).map((o: any) => (
+                    {opportunities.opportunities.slice(0, 4).map((o: Record<string, unknown>) => (
                       <div key={o.id} className="card-elevated" style={{ padding: '12px 14px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                           <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500 }}>

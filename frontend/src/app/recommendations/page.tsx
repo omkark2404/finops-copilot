@@ -10,7 +10,7 @@ import { Lightbulb, CheckCircle2, XCircle } from 'lucide-react'
 
 export default function RecommendationsPage() {
   const { datasetId } = useDataset()
-  const [opportunities, setOpportunities] = useState<any>(null)
+  const [opportunities, setOpportunities] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -63,7 +63,7 @@ export default function RecommendationsPage() {
 
         {!loading && opps.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {opps.map((o: any, i: number) => (
+            {opps.map((o: Record<string, unknown>, i: number) => (
               <div key={o.id} className="card" style={{ padding: 24 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                   <div>

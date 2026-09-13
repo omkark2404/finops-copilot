@@ -19,7 +19,7 @@ const AGENT_LABELS: Record<string, string> = {
 
 export default function AgentsPage() {
   const { datasetId } = useDataset()
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<Record<string, unknown> | null>(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -32,7 +32,7 @@ export default function AgentsPage() {
     try {
       const res = await api.runPipeline(datasetId)
       setResult(res)
-    } catch (e: any) {
+    } catch (e: unknown) {
       setError(e.message)
     } finally {
       setRunning(false)
@@ -69,7 +69,7 @@ export default function AgentsPage() {
           <div className="section-title" style={{ marginBottom: 20 }}>Agent Dependency Graph</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 0, overflowX: 'auto', paddingBottom: 8 }}>
             {Object.entries(AGENT_LABELS).map(([key, label], i, arr) => {
-              const run = agentRuns.find((r: any) => r.agent_type === key)
+              const run = agentRuns.find((r: Record<string, unknown>) => r.agent_type === key)
               const status = run?.status || (running ? 'queued' : 'idle')
               const color = status === 'succeeded' ? 'var(--success)'
                 : status === 'failed' ? 'var(--danger)'
@@ -114,7 +114,7 @@ export default function AgentsPage() {
         {/* Agent Details */}
         {agentRuns.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-            {agentRuns.map((run: any) => (
+            {agentRuns.map((run: Record<string, unknown>) => (
               <div key={run.id} className="card" style={{ overflow: 'hidden' }}>
                 <div
                   onClick={() => setExpanded(expanded === run.id ? null : run.id)}

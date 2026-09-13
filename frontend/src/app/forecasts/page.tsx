@@ -12,8 +12,8 @@ import { BarChart2 } from 'lucide-react'
 export default function ForecastsPage() {
   const { datasetId } = useDataset()
   const [horizon, setHorizon] = useState(30)
-  const [forecast, setForecast] = useState<any>(null)
-  const [trend, setTrend] = useState<any>(null)
+  const [forecast, setForecast] = useState<Record<string, unknown> | null>(null)
+  const [trend, setTrend] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -77,7 +77,7 @@ export default function ForecastsPage() {
           {loading && <div className="skeleton" style={{ height: 300, borderRadius: 8 }} />}
           {!loading && points.length > 0 && (
             <ResponsiveContainer width="100%" height={320}>
-              <AreaChart data={[...trendData, ...points.map((p: any) => ({ ...p, is_forecast: true }))]}>
+              <AreaChart data={[...trendData, ...points.map((p: Record<string, unknown>) => ({ ...p, is_forecast: true }))]}>
                 <defs>
                   <linearGradient id="gradActual" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
@@ -93,7 +93,7 @@ export default function ForecastsPage() {
                 <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}K`} />
                 <Tooltip
                   contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-                  formatter={(v: any) => [formatCurrency(Number(v)), 'Cost']}
+                  formatter={(v: number) => [formatCurrency(Number(v)), 'Cost']}
                 />
                 <Area type="monotone" dataKey="billed_cost" stroke="#6366f1" fill="url(#gradActual)" strokeWidth={2} name="Historical" />
                 <Area type="monotone" dataKey="predicted_cost" stroke="#8b5cf6" fill="url(#gradFc)" strokeWidth={2} strokeDasharray="4 2" name="Forecast" />
