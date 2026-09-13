@@ -2,7 +2,6 @@
 Deterministic Optimization Engine.
 
 Rules-based opportunity detection from billing data.
-NO LLM involvement in opportunity scoring or rule logic.
 
 Critical Honesty Rule:
   Never say 'underutilized' without utilization data.

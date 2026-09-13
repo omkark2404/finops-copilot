@@ -1,7 +1,6 @@
 """
 Authentication and Authorization.
 JWT-based auth with role-based access control.
-No hardcoded secrets.
 """
 from __future__ import annotations
 from datetime import datetime, timedelta

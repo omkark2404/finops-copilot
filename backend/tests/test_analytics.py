@@ -2,8 +2,6 @@
 Unit tests for deterministic cost analytics.
 
 SYNTHETIC TEST FIXTURE — NOT REAL BILLING DATA.
-Used only for isolated unit tests.
-Never used for training, evaluation, or benchmark metrics.
 """
 import pandas as pd
 import pytest
@@ -20,8 +18,7 @@ from app.analytics import get_spend_summary, get_spend_trend, get_cost_drivers, 
 def make_synthetic_focus_df(n_days=60, n_services=3) -> pd.DataFrame:
     """
     SYNTHETIC TEST FIXTURE — NOT REAL BILLING DATA.
-    Generates minimal FOCUS-format data for unit testing only.
-    """
+        """
     rows = []
     base = datetime(2024, 1, 1)
     services = [f"service_{i}" for i in range(n_services)]

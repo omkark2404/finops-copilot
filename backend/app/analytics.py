@@ -2,7 +2,6 @@
 Deterministic Cost Analytics.
 
 All numerical results computed via DuckDB SQL against canonical Parquet files.
-No LLM involvement in any calculation.
 """
 from __future__ import annotations
 import math
