@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: finops-copilot-backend
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    region: oregon
+    plan: free
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: finops-copilot-db
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: finops-copilot-db
+          property: port
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: finops-copilot-db
+          property: database
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: finops-copilot-db
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: finops-copilot-db
+          property: password
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: finops-copilot-redis
+          property: connectionString
+      - key: APP_ENV
+        value: production
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+
+  - type: redis
+    name: finops-copilot-redis
+    region: oregon
+    plan: free
+
+databases:
+  - name: finops-copilot-db
+    databaseName: finopscopilot
+    user: finopsuser
+    region: oregon
+    plan: free
