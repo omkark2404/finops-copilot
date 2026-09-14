@@ -27,21 +27,13 @@ services:
           name: finops-copilot-db
           property: password
       - key: REDIS_URL
-        fromService:
-          type: redis
-          name: finops-copilot-redis
-          property: connectionString
+        value: "redis://localhost:6379/0"
       - key: APP_ENV
         value: production
       - key: ADMIN_PASSWORD
         generateValue: true
       - key: JWT_SECRET_KEY
         generateValue: true
-
-  - type: redis
-    name: finops-copilot-redis
-    region: oregon
-    plan: free
 
 databases:
   - name: finops-copilot-db
