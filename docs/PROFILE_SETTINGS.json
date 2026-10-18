@@ -1,0 +1,26 @@
+{
+  "account": "omkark2404",
+  "application_status": "Prepared only. No public profile/repository setting has been changed.",
+  "name": "Omkar",
+  "bio": "Building Python backends and cloud-cost analytics. Exploring data engineering, forecasting and evidence-based FinOps.",
+  "profile_readme_target": "omkark2404/omkark2404/README.md",
+  "profile_readme_source": "docs/PROFILE_README.md",
+  "pin_additions": [
+    "omkark2404/finops-copilot"
+  ],
+  "pin_removals": [],
+  "repository": "omkark2404/finops-copilot",
+  "description": "Cloud billing investigation prototype: FOCUS CSV/Parquet ingestion, spend analytics, anomaly flags, forecast backtests and human-reviewed evidence workflows.",
+  "topics": [
+    "finops",
+    "focus",
+    "cloud-cost",
+    "python",
+    "fastapi",
+    "duckdb",
+    "nextjs",
+    "forecasting",
+    "anomaly-detection",
+    "portfolio-project"
+  ]
+}

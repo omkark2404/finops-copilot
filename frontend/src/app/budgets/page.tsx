@@ -1,110 +1,36 @@
 'use client'
-import { useEffect, useState } from 'react'
+import {useEffect,useState} from 'react'
 import Layout from '@/components/Layout'
 import PageHeader from '@/components/PageHeader'
-import { api } from '@/lib/api'
-import { formatCurrency } from '@/lib/format'
-import { DollarSign, Plus } from 'lucide-react'
-
-export default function BudgetsPage() {
-  const [budgets, setBudgets] = useState<any[]>([])
-  const [name, setName] = useState('')
-  const [amount, setAmount] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    api.budgets().then(setBudgets).catch(console.error)
-  }, [])
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!name || !amount) return
-    setLoading(true)
-    try {
-      await api.createBudget({
-        name,
-        entity_type: 'total',
-        entity_value: 'all',
-        period_type: 'monthly',
-        period_start: '2024-01-01',
-        period_end: '2024-12-31',
-        budget_amount: Number(amount),
-        currency: 'USD',
-      })
-      setName('')
-      setAmount('')
-      api.budgets().then(setBudgets)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
+import {api} from '@/lib/api'
+import {formatCurrency} from '@/lib/format'
+import type {Budget} from '@/lib/types'
+export default function BudgetsPage(){
+  const today=new Date().toISOString().slice(0,10)
+  const [budgets,setBudgets]=useState<Budget[]>([])
+  const [busy,setBusy]=useState(false);const [error,setError]=useState<string|null>(null)
+  useEffect(()=>{let active=true;api.budgets().then(x=>{if(active)setBudgets(x)}).catch(e=>{if(active)setError(e.message)});return ()=>{active=false}},[])
+  async function create(event:React.FormEvent<HTMLFormElement>){
+    event.preventDefault();const element=event.currentTarget;const form=new FormData(element)
+    setBusy(true);setError(null)
+    try{
+      await api.createBudget({name:String(form.get('name')).trim(),budget_amount:Number(form.get('amount')),
+        currency:String(form.get('currency')).toUpperCase(),period_start:String(form.get('start')),period_end:String(form.get('end')),
+        entity_type:'total',entity_value:'all',period_type:'custom'})
+      setBudgets(await api.budgets());element.reset()
+    }catch(e){setError((e as Error).message)}finally{setBusy(false)}
   }
-
-  return (
-    <Layout>
-      <div style={{ padding: '28px 32px', maxWidth: 1000 }}>
-        <PageHeader title="Budgets & Variance" subtitle="Track spend against allocated cloud budgets" />
-
-        {/* Create Budget */}
-        <div className="card" style={{ padding: 24, marginBottom: 24 }}>
-          <div className="section-title" style={{ marginBottom: 16 }}>Create Budget</div>
-          <form onSubmit={handleCreate} style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Budget Name</label>
-              <input
-                id="budget-name"
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="e.g. Monthly Total Cloud Budget"
-                required
-                style={{ width: '100%' }}
-              />
-            </div>
-            <div style={{ width: 160 }}>
-              <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Amount ($)</label>
-              <input
-                id="budget-amount"
-                type="number"
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-                placeholder="50000"
-                required
-                style={{ width: '100%' }}
-              />
-            </div>
-            <button id="create-budget-btn" type="submit" disabled={loading} className="btn btn-primary">
-              <Plus size={14} /> Create
-            </button>
-          </form>
-        </div>
-
-        {/* Budget List */}
-        <div className="card" style={{ padding: 24 }}>
-          <div className="section-title" style={{ marginBottom: 16 }}>Configured Budgets ({budgets.length})</div>
-          {budgets.length === 0 ? (
-            <div className="empty-state" style={{ padding: 32 }}>
-              <DollarSign size={24} />
-              <span>No budgets configured yet</span>
-            </div>
-          ) : (
-            <table className="table">
-              <thead><tr><th>Budget Name</th><th>Amount</th><th>Period</th><th>Currency</th></tr></thead>
-              <tbody>
-                {budgets.map(b => (
-                  <tr key={b.id}>
-                    <td style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{b.name}</td>
-                    <td style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{formatCurrency(b.budget_amount)}</td>
-                    <td style={{ color: 'var(--text-muted)' }}>{b.period_type}</td>
-                    <td>{b.currency}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-    </Layout>
-  )
+  return <Layout><div className="page-content"><PageHeader title="Budgets and observed variance" subtitle="Observed differences use exactly one matching-currency dataset to avoid overlapping exports; they do not certify complete billing coverage."/>
+    {error&&<p role="alert" className="request-error">{error}</p>}
+    <form onSubmit={create} className="card budget-form">
+      <label htmlFor="budget-name">Budget name</label><input id="budget-name" name="name" required maxLength={120}/>
+      <label htmlFor="budget-amount">Budget amount</label><input id="budget-amount" name="amount" type="number" min=".01" step=".01" required/>
+      <label htmlFor="budget-currency">Billing currency (three letters)</label><input id="budget-currency" name="currency" pattern="[A-Za-z]{3}" maxLength={3} placeholder="Match your billing file" required/>
+      <label htmlFor="budget-start">Period start</label><input id="budget-start" name="start" type="date" defaultValue={today} required/>
+      <label htmlFor="budget-end">Period end</label><input id="budget-end" name="end" type="date" defaultValue={today} required/>
+      <button className="btn btn-primary" disabled={busy}>Create budget</button>
+    </form>
+    <div className="table-scroll"><table className="table"><thead><tr><th>Name</th><th>Budget</th><th>Observed spend</th><th>Observed difference</th><th>Coverage</th></tr></thead>
+      <tbody>{budgets.map(b=><tr key={b.id}><td>{b.name}</td><td>{formatCurrency(b.budget_amount,b.currency)}</td><td>{formatCurrency(b.actual_spend,b.currency)}</td><td>{formatCurrency(b.variance,b.currency)}</td><td>{b.note||b.period_start.slice(0,10)+' – '+b.period_end.slice(0,10)}</td></tr>)}</tbody></table></div>
+  </div></Layout>
 }

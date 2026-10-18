@@ -1,16 +1,17 @@
-import os
-import shutil
 import uuid
-import pytest
 from pathlib import Path
-import pandas as pd
 
-from app.storage import (
-    get_data_dir, get_parquet_dir, get_uploads_dir, get_duckdb_path,
-    get_dataset_dir, get_dataset_parquet_path, get_relative_parquet_key,
-    verify_dataset_parquet_exists, validate_dataset_id
-)
+import pandas as pd
+import pytest
 from app.config import get_settings
+from app.storage import (
+    get_data_dir,
+    get_dataset_parquet_path,
+    get_parquet_dir,
+    get_relative_parquet_key,
+    validate_dataset_id,
+    verify_dataset_parquet_exists,
+)
 
 
 def test_storage_paths_deterministic(tmp_path, monkeypatch):
@@ -25,7 +26,9 @@ def test_storage_paths_deterministic(tmp_path, monkeypatch):
 
     assert str(data_dir) == str(Path(test_dir).resolve())
     assert str(parquet_dir) == str(Path(test_dir).resolve() / "parquet")
-    assert str(dataset_parquet) == str(Path(test_dir).resolve() / "parquet" / dataset_id / "data.parquet")
+    assert str(dataset_parquet) == str(
+        Path(test_dir).resolve() / "parquet" / dataset_id / "data.parquet"
+    )
 
     get_settings.cache_clear()
 
@@ -44,7 +47,7 @@ def test_verify_dataset_parquet_exists(tmp_path, monkeypatch):
     get_settings.cache_clear()
 
     dataset_id = str(uuid.uuid4())
-    
+
     # 1. Before creation: missing
     exists, reason = verify_dataset_parquet_exists(dataset_id)
     assert not exists

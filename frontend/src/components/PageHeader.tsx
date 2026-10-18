@@ -8,8 +8,9 @@ export default function PageHeader({
   actions?: React.ReactNode
 }) {
   return (
-    <div style={{
+    <div className="page-header" style={{
       display: 'flex',
+      flexWrap: 'wrap',
       alignItems: 'flex-start',
       justifyContent: 'space-between',
       marginBottom: 28,
@@ -19,7 +20,7 @@ export default function PageHeader({
         <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>{title}</h1>
         {subtitle && <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{subtitle}</p>}
       </div>
-      {actions && <div style={{ display: 'flex', gap: 8 }}>{actions}</div>}
+      {actions && <div className="page-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', maxWidth: '100%' }}>{actions}</div>}
     </div>
   )
 }

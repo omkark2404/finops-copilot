@@ -3,9 +3,11 @@ Tests for API response shapes, authentication behavior, and ingestion contract.
 
 SYNTHETIC TEST FIXTURE — NOT REAL BILLING DATA.
 """
+
 import uuid
-import pytest
+
 import pandas as pd
+import pytest
 
 
 def make_focus_csv(tmp_path, rows=5) -> str:
@@ -18,8 +20,8 @@ def make_focus_csv(tmp_path, rows=5) -> str:
         "BillingAccountId": ["acc-001"] * rows,
         "ServiceName": ["Compute"] * rows,
         "RegionId": ["us-east-1"] * rows,
-        "ChargePeriodStart": [f"2024-01-{i+1:02d}T00:00:00Z" for i in range(rows)],
-        "ChargePeriodEnd": [f"2024-01-{i+1:02d}T23:59:59Z" for i in range(rows)],
+        "ChargePeriodStart": [f"2024-01-{i + 1:02d}T00:00:00Z" for i in range(rows)],
+        "ChargePeriodEnd": [f"2024-01-{i + 1:02d}T23:59:59Z" for i in range(rows)],
     }
     df = pd.DataFrame(data)
     path = tmp_path / "synthetic_focus_api_test.csv"
@@ -29,14 +31,14 @@ def make_focus_csv(tmp_path, rows=5) -> str:
 
 # ── Ingest Response Shape ──────────────────────────────────────────────────────
 
+
 class TestIngestResponseShape:
     """Verify the exact JSON response shape from the ingest pipeline."""
 
     def test_ingest_file_provenance_keys(self, tmp_path, monkeypatch):
         """ingest_file must return provenance with dataset_id-agnostic keys."""
-        import os
-        from app.ingestion import ingest_file
         from app.config import get_settings
+        from app.ingestion import ingest_file
 
         test_dir = str(tmp_path / "api_test_data")
         monkeypatch.setenv("DATA_DIR", test_dir)
@@ -59,8 +61,9 @@ class TestIngestResponseShape:
 
         # parquet_path must be a relative key (not absolute path)
         relative_key = provenance["parquet_path"]
-        assert not relative_key.startswith("/"), \
+        assert not relative_key.startswith("/"), (
             f"parquet_path must be a relative key, got: {relative_key!r}"
+        )
         assert relative_key == f"parquet/{dataset_id}/data.parquet"
 
         get_settings.cache_clear()
@@ -73,8 +76,8 @@ class TestIngestResponseShape:
         This catches the 'undefined rows / undefined status' bug where
         the frontend parsed an error body (detail=...) instead of a success body.
         """
-        from app.ingestion import ingest_file
         from app.config import get_settings
+        from app.ingestion import ingest_file
 
         test_dir = str(tmp_path / "api_response_test")
         monkeypatch.setenv("DATA_DIR", test_dir)
@@ -108,10 +111,12 @@ class TestIngestResponseShape:
         assert isinstance(api_response["warnings"], list)
 
         # row_count and validation_status must NEVER be None/undefined
-        assert api_response["row_count"] is not None, \
+        assert api_response["row_count"] is not None, (
             "row_count was None — frontend would show 'undefined rows'"
-        assert api_response["validation_status"] is not None, \
+        )
+        assert api_response["validation_status"] is not None, (
             "validation_status was None — frontend would show 'Status: undefined'"
+        )
 
         get_settings.cache_clear()
 
@@ -120,8 +125,8 @@ class TestIngestResponseShape:
         The parquet_path stored in DB must be a relative key, not an absolute path.
         This ensures the response is consistent across local and Render environments.
         """
-        from app.ingestion import ingest_file
         from app.config import get_settings
+        from app.ingestion import ingest_file
 
         test_dir = str(tmp_path / "key_test")
         monkeypatch.setenv("DATA_DIR", test_dir)
@@ -143,6 +148,7 @@ class TestIngestResponseShape:
 
 # ── JWT / Auth Config ──────────────────────────────────────────────────────────
 
+
 class TestAuthConfig:
     """Verify JWT configuration is correct for prototype use."""
 
@@ -153,7 +159,8 @@ class TestAuthConfig:
         'Invalid or expired token' errors during a normal work session.
         Ideally >= 1440 minutes (24 hours).
         """
-        from app.config import get_settings, Settings
+        from app.config import get_settings
+
         get_settings.cache_clear()
         settings = get_settings()
 
@@ -170,6 +177,7 @@ class TestAuthConfig:
         monkeypatch.setenv("JWT_SECRET_KEY", "test_secret_key_for_unit_test_32c")
         monkeypatch.setenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "1440")
         from app.config import get_settings
+
         get_settings.cache_clear()
 
         from app.auth import create_access_token, decode_token
@@ -188,6 +196,7 @@ class TestAuthConfig:
         """An invalid/expired token must raise HTTP 401 with 'Invalid or expired token'."""
         monkeypatch.setenv("JWT_SECRET_KEY", "test_secret_key_for_unit_test_32c")
         from app.config import get_settings
+
         get_settings.cache_clear()
 
         from app.auth import decode_token

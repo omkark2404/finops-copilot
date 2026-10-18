@@ -1,19 +1,12 @@
-import type { Metadata } from 'next'
+import type {Metadata} from 'next'
 import './globals.css'
-
-export const metadata: Metadata = {
-  title: 'finops-copilot — FinOps Decision Platform',
-  description: 'Cloud cost analytics, anomaly detection, and optimization recommendations powered by FOCUS billing data.',
+export const metadata:Metadata={
+  title:{default:'FinOps Copilot | Omkar',template:'%s | FinOps Copilot'},
+  description:'FOCUS billing analytics prototype with statistical anomaly detection, forecasting, and optional Gemini explanations.',
+  openGraph:{title:'FinOps Copilot | Omkar',description:'A portfolio prototype for investigating cloud billing data.',type:'website'},
+  twitter:{card:'summary',title:'FinOps Copilot | Omkar'},
+  icons:{icon:'/icon.svg'},
 }
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      </head>
-      <body suppressHydrationWarning>{children}</body>
-    </html>
-  )
+export default function RootLayout({children}:{children:React.ReactNode}){
+  return <html lang="en"><body>{children}</body></html>
 }

@@ -10,23 +10,23 @@ export default function MetricCard({
 }: {
   label: string
   value: string
-  change?: number
+  change?: number | null
   changeLabel?: string
   icon?: React.ReactNode
   accent?: 'success' | 'danger' | 'warning' | 'accent'
 }) {
-  const isPositiveChange = change !== undefined && change > 0
-  const changeColor = change === undefined ? undefined
+  const isPositiveChange = change != null && change > 0
+  const changeColor = change == null ? undefined
     : isPositiveChange ? 'var(--danger)' : 'var(--success)'
 
   return (
-    <div className="metric-card fade-in">
+    <div className="metric-card fade-in" data-accent={accent}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
         <div className="metric-label">{label}</div>
         {icon && <div style={{ color: 'var(--text-muted)', opacity: 0.6 }}>{icon}</div>}
       </div>
       <div className="metric-value">{value}</div>
-      {change !== undefined && (
+      {change != null && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, fontSize: 12 }}>
           {isPositiveChange
             ? <ArrowUpRight size={12} style={{ color: changeColor }} />

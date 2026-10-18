@@ -1,0 +1,58 @@
+name: Deployment and provider verification
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      live_gemini:
+        description: Run one live Gemini call using the repository secret (provider charges may apply)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  compose-postgresql:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: python scripts/init_env.py
+      - run: docker compose config --quiet
+      - run: docker compose up --build --wait --wait-timeout 180
+        timeout-minutes: 15
+      - name: Verify non-root containers
+        run: |
+          docker compose exec -T backend python -c "import os; assert os.geteuid() != 0"
+          docker compose exec -T frontend node -e "if(process.getuid()===0)process.exit(1)"
+      - name: Exercise PostgreSQL-backed HTTP workflow
+        run: docker compose exec -T backend python verify_integration.py --expected-database postgresql --output /app/data/integration-results.json
+      - name: Verify frontend HTML
+        run: python -c "import urllib.request; assert 'FinOps Copilot' in urllib.request.urlopen('http://localhost:3000/login',timeout=30).read().decode()"
+      - name: Collect non-secret results
+        run: docker compose cp backend:/app/data/integration-results.json /tmp/integration-results.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: compose-postgresql-results
+          path: /tmp/integration-results.json
+      - if: always()
+        run: docker compose down --volumes
+  live-gemini:
+    if: github.event_name == 'workflow_dispatch' && inputs.live_gemini
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r backend/requirements.txt
+      - name: One live aggregate-only call
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.5-flash-lite' }}
+        run: python backend/verify_live_gemini.py --output /tmp/gemini-results.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gemini-smoke-results
+          path: /tmp/gemini-results.json

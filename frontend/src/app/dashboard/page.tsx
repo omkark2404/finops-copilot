@@ -1,4 +1,5 @@
 'use client'
+import type {AnomalyReport,Forecast,OpportunityReport,SpendSummary,SpendTrend} from '@/lib/types'
 import { useEffect, useState } from 'react'
 import Layout from '@/components/Layout'
 import MetricCard from '@/components/MetricCard'
@@ -6,7 +7,7 @@ import PageHeader from '@/components/PageHeader'
 import DatasetSelector from '@/components/DatasetSelector'
 import { api } from '@/lib/api'
 import { useDataset } from '@/lib/useDataset'
-import { formatCurrency, formatPct } from '@/lib/format'
+import { formatCompact, formatCurrency, formatPct } from '@/lib/format'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer
@@ -17,15 +18,17 @@ const COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8', '#4f46e5'
 
 export default function DashboardPage() {
   const { datasetId } = useDataset()
-  const [summary, setSummary] = useState<any | null>(null)
-  const [trend, setTrend] = useState<any | null>(null)
-  const [anomalies, setAnomalies] = useState<any | null>(null)
-  const [opportunities, setOpportunities] = useState<any | null>(null)
-  const [forecast, setForecast] = useState<any | null>(null)
+  const [summary, setSummary] = useState<SpendSummary | null>(null)
+  const [trend, setTrend] = useState<SpendTrend | null>(null)
+  const [anomalies, setAnomalies] = useState<AnomalyReport | null>(null)
+  const [opportunities, setOpportunities] = useState<OpportunityReport | null>(null)
+  const [forecast, setForecast] = useState<Forecast | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let active=true
+    setSummary(null);setTrend(null);setAnomalies(null);setOpportunities(null);setForecast(null)
     if (!datasetId) return
     setLoading(true)
     setError(null)
@@ -36,20 +39,22 @@ export default function DashboardPage() {
       api.opportunities(datasetId).catch(() => null),
       api.forecasts(datasetId, 30).catch(() => null),
     ]).then(([s, t, a, o, f]) => {
+      if(!active)return
       setSummary(s); setTrend(t); setAnomalies(a); setOpportunities(o); setForecast(f)
-    }).catch((e: Error) => setError(e.message)).finally(() => setLoading(false))
+    }).catch((e: Error) => {if(active)setError(e.message)}).finally(() => {if(active)setLoading(false)})
+    return ()=>{active=false}
   }, [datasetId])
 
   const serviceData = summary ? Object.entries(summary.service_breakdown || {}).slice(0, 6).map(([k, v]) => ({ name: k, cost: v as number })) : []
   const trendData = trend?.data_points?.slice(-30) || []
-  const forecastPoints = forecast?.points?.slice(0, 14) || []
+  const forecastPoints = forecast?.points?.slice(0, 30) || []
 
   return (
     <Layout>
       <div style={{ padding: '28px 32px', maxWidth: 1400 }}>
         <PageHeader
           title="Overview"
-          subtitle="Cloud cost intelligence across all providers and services"
+          subtitle="Observed billing totals and statistical investigation flags"
           actions={<DatasetSelector />}
         />
 
@@ -76,14 +81,14 @@ export default function DashboardPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
               <MetricCard
                 label="Total Spend"
-                value={formatCurrency(summary.total_billed_cost)}
+                value={formatCurrency(summary.total_billed_cost, summary.currency)}
                 change={summary.mom_change_pct}
-                changeLabel="MoM"
+                changeLabel="Comparable period"
                 icon={<DollarSign size={16} />}
               />
               <MetricCard
                 label="Effective Spend"
-                value={formatCurrency(summary.total_effective_cost)}
+                value={formatCurrency(summary.total_effective_cost, summary.currency)}
                 icon={<Activity size={16} />}
               />
               <MetricCard
@@ -101,7 +106,7 @@ export default function DashboardPage() {
             {/* Second Row */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
               <MetricCard
-                label="Est. Savings Available"
+                label="Savings not estimated"
                 value={formatCurrency(opportunities?.total_potential_savings)}
                 icon={<TrendingUp size={16} />}
               />
@@ -135,15 +140,15 @@ export default function DashboardPage() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                    <XAxis dataKey="date" tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
+                    <XAxis dataKey="date" tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
                       tickFormatter={d => d?.slice(5)} />
-                    <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
-                      tickFormatter={v => `$${(v / 1000).toFixed(0)}K`} />
+                    <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+                      tickFormatter={formatCompact} />
                     <Tooltip
                       contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-                      formatter={(v: number) => [`$${Number(v).toLocaleString()}`, 'Billed Cost']}
+                      formatter={(v: unknown) => [formatCurrency(Number(v),summary?.currency), 'Billed Cost']}
                     />
-                    <Area type="monotone" dataKey="billed_cost" stroke="#6366f1" fill="url(#gradAccent)" strokeWidth={2} />
+                    <Area isAnimationActive={false} type="monotone" dataKey="billed_cost" stroke="#6366f1" fill="url(#gradAccent)" strokeWidth={2} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -156,7 +161,7 @@ export default function DashboardPage() {
                 {serviceData.length > 0 ? (
                   <div>
                     {serviceData.map((item, i) => {
-                      const total = serviceData.reduce((s, d) => s + d.cost, 0)
+                      const total = summary.total_billed_cost
                       const pct = total > 0 ? (item.cost / total * 100) : 0
                       return (
                         <div key={item.name} style={{ marginBottom: 12 }}>
@@ -185,16 +190,16 @@ export default function DashboardPage() {
             {forecast && forecastPoints.length > 0 && (
               <div className="card" style={{ padding: 24, marginBottom: 24 }}>
                 <div className="section-header">
-                  <div className="section-title">30-Day Forecast</div>
+                  <div className="section-title">Forecast (up to 30 days)</div>
                   <div style={{ display: 'flex', gap: 12, fontSize: 12, color: 'var(--text-muted)' }}>
                     <span>Method: <strong style={{ color: 'var(--text-primary)' }}>{forecast.method}</strong></span>
-                    {forecast.metrics?.wape !== undefined && (
+                    {forecast.metrics?.wape != null && (
                       <span>WAPE: <strong style={{ color: 'var(--text-primary)' }}>{formatPct(forecast.metrics.wape * 100)}</strong></span>
                     )}
                   </div>
                 </div>
                 <ResponsiveContainer width="100%" height={180}>
-                  <AreaChart data={[...trendData.slice(-14), ...forecastPoints.map((p: any) => ({ ...p, is_forecast: true }))]}>  
+                  <AreaChart data={[...trendData.slice(-14), ...forecastPoints.map((p) => ({ ...p, is_forecast: true }))]}>
                     <defs>
                       <linearGradient id="gradForecast" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.25} />
@@ -202,14 +207,14 @@ export default function DashboardPage() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                    <XAxis dataKey="date" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} tickFormatter={d => d?.slice(5)} />
-                    <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}K`} />
+                    <XAxis dataKey="date" tick={{ fill: 'var(--text-muted)', fontSize: 12 }} tickFormatter={d => d?.slice(5)} />
+                    <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 12 }} tickFormatter={formatCompact} />
                     <Tooltip
                       contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-                      formatter={(v: number) => [`$${Number(v).toLocaleString()}`, 'Cost']}
+                      formatter={(v: unknown) => [formatCurrency(Number(v),summary?.currency), 'Cost']}
                     />
-                    <Area type="monotone" dataKey="billed_cost" stroke="#6366f1" fill="url(#gradAccent)" strokeWidth={2} />
-                    <Area type="monotone" dataKey="predicted_cost" stroke="#8b5cf6" fill="url(#gradForecast)" strokeWidth={2} strokeDasharray="4 2" />
+                    <Area isAnimationActive={false} type="monotone" dataKey="billed_cost" stroke="#6366f1" fill="url(#gradAccent)" strokeWidth={2} />
+                    <Area isAnimationActive={false} type="monotone" dataKey="predicted_cost" stroke="#8b5cf6" fill="url(#gradForecast)" strokeWidth={2} strokeDasharray="4 2" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -223,19 +228,19 @@ export default function DashboardPage() {
                   <div className="section-title">Recent Anomalies</div>
                   <a href="/anomalies" style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}>View all →</a>
                 </div>
-                {anomalies?.anomalies?.length > 0 ? (
+                {anomalies && anomalies.anomalies.length > 0 ? (
                   <table className="table">
                     <thead><tr>
                       <th>Entity</th><th>Deviation</th><th>Severity</th>
                     </tr></thead>
                     <tbody>
-                      {anomalies.anomalies.slice(0, 5).map((a: any) => (
+                      {anomalies.anomalies.slice(0, 5).map((a) => (
                         <tr key={a.id}>
                           <td style={{ color: 'var(--text-primary)', maxWidth: 140 }}>
                             <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {a.entity_value}
                             </div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{a.entity_type}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{a.entity_type}</div>
                           </td>
                           <td style={{ color: a.deviation_pct > 0 ? 'var(--danger)' : 'var(--success)' }}>
                             {a.deviation_pct > 0 ? '+' : ''}{a.deviation_pct?.toFixed(1)}%
@@ -248,7 +253,7 @@ export default function DashboardPage() {
                 ) : (
                   <div className="empty-state" style={{ padding: 32 }}>
                     <AlertTriangle size={24} />
-                    <span>No anomalies detected</span>
+                    <span>{anomalies ? 'No anomalies detected' : 'Anomaly analysis unavailable'}</span>
                   </div>
                 )}
               </div>
@@ -259,9 +264,9 @@ export default function DashboardPage() {
                   <div className="section-title">Top Opportunities</div>
                   <a href="/recommendations" style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}>View all →</a>
                 </div>
-                {opportunities?.opportunities?.length > 0 ? (
+                {opportunities && opportunities.opportunities.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {opportunities.opportunities.slice(0, 4).map((o: any) => (
+                    {opportunities.opportunities.slice(0, 4).map((o) => (
                       <div key={o.id} className="card-elevated" style={{ padding: '12px 14px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                           <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500 }}>
@@ -271,7 +276,7 @@ export default function DashboardPage() {
                             {formatCurrency(o.potential_savings_estimate)}
                           </span>
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                           {o.opportunity_type?.replace(/_/g, ' ')}
                         </div>
                       </div>
@@ -280,7 +285,7 @@ export default function DashboardPage() {
                 ) : (
                   <div className="empty-state" style={{ padding: 32 }}>
                     <Lightbulb size={24} />
-                    <span>No opportunities found</span>
+                    <span>{opportunities ? 'No opportunities found' : 'Opportunity analysis unavailable'}</span>
                   </div>
                 )}
               </div>

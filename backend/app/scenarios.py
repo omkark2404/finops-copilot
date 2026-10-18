@@ -8,11 +8,13 @@ Critical distinction:
   All estimates are projections with stated assumptions.
   Never fabricate realized savings.
 """
+
 from __future__ import annotations
-from datetime import datetime
-from typing import Optional
+
+import math
 
 from .schemas import SavingsEstimate, ScenarioType
+from .time import utcnow
 
 
 def simulate_usage_reduction(
@@ -44,7 +46,7 @@ def simulate_usage_reduction(
         ],
         confidence=0.5,  # Medium confidence — billing-only assumption
         time_horizon_days=time_horizon_days,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
 
 
@@ -74,7 +76,7 @@ def simulate_price_change(
         ],
         confidence=0.4,
         time_horizon_days=time_horizon_days,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
 
 
@@ -101,7 +103,7 @@ def simulate_recommendation_implementation(
         assumptions=assumptions + ["ESTIMATED SAVINGS — not realized savings"],
         confidence=confidence,
         time_horizon_days=time_horizon_days,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
 
 
@@ -112,28 +114,46 @@ def run_scenario(
 ) -> SavingsEstimate:
     """Dispatch to appropriate scenario simulation."""
     current_cost = float(config.get("current_cost", 0))
+    if not math.isfinite(current_cost) or current_cost <= 0:
+        raise ValueError("A finite positive current cost is required")
     entity = str(config.get("entity", ""))
     horizon = int(config.get("time_horizon_days", 30))
 
+    if not 1 <= horizon <= 3660:
+        raise ValueError("Invalid scenario horizon")
+    if scenario_type == ScenarioType.price_change:
+        change = float(config.get("price_change_pct", -10))
+        if not math.isfinite(change) or not -100 < change < 100:
+            raise ValueError("Invalid price change")
+    if scenario_type == ScenarioType.recommendation_implementation:
+        change = float(config.get("estimated_savings_pct", 10))
+        if not math.isfinite(change) or not 0 < change < 100:
+            raise ValueError("Invalid estimated savings percentage")
     if scenario_type == ScenarioType.usage_reduction:
         return simulate_usage_reduction(
-            recommendation_id, current_cost,
+            recommendation_id,
+            current_cost,
             float(config.get("reduction_pct", 10)),
-            horizon, entity
+            horizon,
+            entity,
         )
     elif scenario_type == ScenarioType.price_change:
         return simulate_price_change(
-            recommendation_id, current_cost,
+            recommendation_id,
+            current_cost,
             float(config.get("price_change_pct", -10)),
-            horizon, entity
+            horizon,
+            entity,
         )
     elif scenario_type == ScenarioType.recommendation_implementation:
         return simulate_recommendation_implementation(
-            recommendation_id, current_cost,
+            recommendation_id,
+            current_cost,
             float(config.get("estimated_savings_pct", 10)),
             list(config.get("assumptions", [])),
             float(config.get("confidence", 0.6)),
-            horizon, entity
+            horizon,
+            entity,
         )
     else:
         raise ValueError(f"Unknown scenario type: {scenario_type}")

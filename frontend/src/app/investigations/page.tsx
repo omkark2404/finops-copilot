@@ -1,19 +1,24 @@
 'use client'
+import type {AnomalyReport} from '@/lib/types'
 import { useEffect, useState } from 'react'
 import Layout from '@/components/Layout'
 import PageHeader from '@/components/PageHeader'
 import DatasetSelector from '@/components/DatasetSelector'
 import { api } from '@/lib/api'
 import { useDataset } from '@/lib/useDataset'
-import { Search, AlertTriangle, ArrowRight } from 'lucide-react'
+import { Search, ArrowRight } from 'lucide-react'
 
 export default function InvestigationsPage() {
   const { datasetId } = useDataset()
-  const [anomalies, setAnomalies] = useState<any | null>(null)
+  const [anomalies, setAnomalies] = useState<AnomalyReport | null>(null)
 
+  const [requestError,setRequestError] = useState<string | null>(null)
   useEffect(() => {
+    let active=true
+    setAnomalies(null);setRequestError(null)
     if (!datasetId) return
-    api.anomalies(datasetId).then(setAnomalies).catch(console.error)
+    api.anomalies(datasetId).then(x=>{if(active)setAnomalies(x)}).catch(e=>{if(active)setRequestError(e.message)})
+    return ()=>{active=false}
   }, [datasetId])
 
   const anomalyList = anomalies?.anomalies || []
@@ -27,14 +32,14 @@ export default function InvestigationsPage() {
           actions={<DatasetSelector />}
         />
 
-        {anomalyList.length === 0 ? (
+        {requestError ? <p role="alert" className="request-error">{requestError}</p> : anomalyList.length === 0 ? (
           <div className="empty-state card" style={{ padding: 64 }}>
             <Search size={32} />
             <span>Select a dataset to begin investigation</span>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {anomalyList.slice(0, 5).map((a: any) => (
+            {anomalyList.slice(0, 5).map((a) => (
               <div key={a.id} className="card" style={{ padding: 24 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
                   <div>
@@ -52,15 +57,15 @@ export default function InvestigationsPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, background: 'var(--bg-elevated)', padding: 16, borderRadius: 8, marginBottom: 16 }}>
                   <div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Actual Cost</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Actual Cost</div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--danger)' }}>${a.actual_cost?.toLocaleString()}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Expected Cost</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Expected Cost</div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>${a.expected_cost?.toLocaleString()}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Deviation</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Deviation</div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--danger)' }}>+{a.deviation_pct?.toFixed(1)}%</div>
                   </div>
                 </div>

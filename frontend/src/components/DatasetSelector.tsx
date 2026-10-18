@@ -1,11 +1,12 @@
 'use client'
+import type {DatasetInfo} from '@/lib/types'
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { useDataset } from '@/lib/useDataset'
 import { Database } from 'lucide-react'
 
 export default function DatasetSelector() {
-  const [datasets, setDatasets] = useState<any[]>([])
+  const [datasets, setDatasets] = useState<DatasetInfo[]>([])
   const { datasetId, setDatasetId } = useDataset()
 
   useEffect(() => {
@@ -21,8 +22,8 @@ export default function DatasetSelector() {
           setDatasetId('')
         }
       })
-      .catch(() => {})
-  }, [datasetId])
+      .catch(() => setDatasets([]))
+  }, [datasetId, setDatasetId])
 
   if (!datasets.length) return null
 
@@ -31,6 +32,7 @@ export default function DatasetSelector() {
       <Database size={13} style={{ color: 'var(--text-muted)' }} />
       <select
         id="dataset-selector"
+        aria-label="Active billing dataset"
         value={datasetId || ''}
         onChange={e => setDatasetId(e.target.value)}
         style={{ fontSize: 12, padding: '4px 8px', minWidth: 180 }}

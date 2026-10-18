@@ -1,54 +1,16 @@
-# finops-copilot — Honest System Boundaries, Limitations & Future Roadmap
+# Boundaries
 
-## 1. Current System Limitations & Boundaries
+- Portfolio prototype; no production-grade, zero-downtime, zero-hallucination or verified-savings guarantee.
+- Per-owner authorization plus admin access, not a certified enterprise tenancy model. Account provisioning is administrator-only.
+- One process, local Parquet and bounded serialized compute; no distributed queue, multi-node analytical engine or object storage.
+- Bill ingestion does not provide utilization telemetry, tagging allocation, commitment economics, unit economics or automated rightsizing.
+- Investigations are not confirmed waste. No automatic savings total is produced. Whole-dataset user scenarios are hypothetical and overlap.
+- Generated explanations can be wrong even after numeric checking. No empirical calibration of heuristic scores is claimed.
+- Fixed-origin test windows can be shorter than future forecast horizons. Missing days are rejected. No calibrated prediction intervals or labeled anomaly precision/recall study.
+- Free/ephemeral hosts lose Parquet unless a persistent volume is configured. PostgreSQL alone does not preserve analytical files.
+- Request limits are per process and IP, intended for a single-instance prototype. Add edge/distributed limits before scaling.
+- Deletion spans SQL metadata and filesystem operations, without a cross-storage transaction; back up both together and monitor/retry failures.
+- Money uses decimal SQL aggregation but floating-point API/scenario displays. This is not an accounting ledger.
+- Upstream source/license rights, profile metadata, hosting-account ownership and live deployment need maintainer verification; see PROVENANCE and REMEDIATION.
 
-### 1.1 FOCUS Billing Data Scope (No Hypervisor Telemetry)
-- **Boundary**: finops-copilot ingests and analyzes FOCUS billing and cost data. It does not possess direct real-time agent/OS telemetry (e.g. CPU%, RAM%, disk IOPS).
-- **Technical Honesty Rule**: The system flags candidates for investigation based on measurable cost and quantity divergences (e.g., *"Cost increased 45% while billed quantity remained constant"*), rather than making unsupported utilization assumptions (e.g., *"This instance is underutilized"*).
-
-### 1.2 Estimated vs. Realized Savings
-- **Boundary**: All savings calculations are strictly categorized as **ESTIMATED SAVINGS** generated under specific scenario assumptions (e.g. 15% usage reduction or 1-year commitment discount).
-- **Technical Honesty Rule**: The system never claims realized savings until post-implementation billing reconciliation has verified the actual cost delta.
-
-### 1.3 Ephemeral Filesystem in Prototype Hosting Tier
-- **Boundary**: On free-tier platforms like Render Free, the local filesystem is ephemeral and may reset upon container redeployments or cold restarts.
-- **Handling**: The system detects missing storage cleanly, raises a structured `DATASET_STORAGE_MISSING` response (HTTP 404), and provides an idempotent dataset deletion workflow allowing clean re-ingestion.
-
-### 1.4 In-Process Analytical Concurrency
-- **Boundary**: The analytics engine utilizes in-process DuckDB with file locks. While exceptionally fast for single-node workloads (processing 100k+ rows in milliseconds), horizontal scaling across multiple web instances requires detached analytical compute.
-
-### 1.5 Human-in-the-Loop Constraint
-- **Boundary**: finops-copilot is an auditable **decision-support system**. It deliberately does not execute automated, destructive cloud resource deletions or modifications.
-
----
-
-## 2. Future Upgradations & Production Roadmap
-
-To transition finops-copilot from a high-performance prototype into a multi-tenant enterprise FinOps engine, the following upgrades are planned:
-
-```mermaid
-flowchart LR
-    A[Current Prototype] --> B[Phase 1: Object Storage & Telemetry]
-    B --> C[Phase 2: Closed-Loop Realized Savings]
-    C --> D[Phase 3: Distributed Compute & Fine-Tuned LLM]
-```
-
-### 2.1 Decoupled Object Storage (Cloudflare R2 / AWS S3)
-- **Goal**: Persistent, zero-local-disk analytical storage.
-- **Implementation**: Ingest Parquet datasets directly to Cloudflare R2 / AWS S3 and query them via DuckDB's `httpfs` extension with S3-compatible endpoints, eliminating local disk dependencies entirely.
-
-### 2.2 Telemetry Fusion (Prometheus, CloudWatch, Datadog APIs)
-- **Goal**: True utilization-backed rightsizing recommendations.
-- **Implementation**: Build pluggable metric collectors that query CloudWatch / Datadog APIs to fuse real-time CPU/RAM percentiles ($P_{95}$, $P_{99}$) with FOCUS billing rows for deterministic idle-resource classification.
-
-### 2.3 Automated Post-Implementation Reconciliation (Realized Savings Tracker)
-- **Goal**: Measure actual financial impact.
-- **Implementation**: When a recommendation is marked `APPROVED`, schedule an automated verification job that monitors subsequent billing periods, computes the variance against baseline, and records verified **Realized Savings**.
-
-### 2.4 Distributed Analytical Engine (ClickHouse / MotherDuck)
-- **Goal**: Multi-billion row enterprise scalability.
-- **Implementation**: Migrate DuckDB to MotherDuck (cloud DuckDB) or a ClickHouse cluster for sub-second aggregations across multi-account, multi-cloud enterprise billing exports.
-
-### 2.5 Domain-Specific FinOps SLM (Small Language Model) & Fine-Tuning
-- **Goal**: Low-latency, deterministic, offline-capable FinOps reasoning.
-- **Implementation**: Fine-tune a specialized 7B/8B parameter model (e.g. Llama 3 / Mistral) on FOCUS 1.0 specifications and cloud pricing structures using LoRA adapters for precise, hallucination-free explanations.
+Next steps should follow measured workloads and licensed representative evaluation, rather than speculative billion-row claims or fine-tuning guarantees.

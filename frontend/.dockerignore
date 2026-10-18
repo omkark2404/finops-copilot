@@ -1,5 +1,10 @@
 node_modules
 .next
+.env
+.env.*
+test-results
+playwright-report
+*.tsbuildinfo
+*.log
 out
-.env*
 .DS_Store

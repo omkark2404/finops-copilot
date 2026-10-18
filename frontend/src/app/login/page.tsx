@@ -1,23 +1,25 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { api, setAuthToken } from '@/lib/api'
+import { api } from '@/lib/api'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('admin@finops-copilot.local')
-  const [password, setPassword] = useState('')
+  const [hydrated, setHydrated] = useState(false)
+  useEffect(() => setHydrated(true), [])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    const form = new FormData(e.currentTarget as HTMLFormElement)
+    const email = String(form.get('email') || '')
+    const password = String(form.get('password') || '')
     setLoading(true)
     setError('')
     try {
-      const { access_token } = await api.login(email, password)
-      setAuthToken(access_token)
+      await api.login(email, password)
       router.push('/dashboard')
     } catch (err: unknown) { setError((err as Error).message || 'Login failed')
     } finally {
@@ -47,10 +49,10 @@ export default function LoginPage() {
             marginBottom: 16,
             boxShadow: '0 8px 32px rgba(99,102,241,0.3)',
           }}>
-            <span style={{ fontSize: 24, color: '#fff', fontWeight: 800 }}>C</span>
+            <span style={{ fontSize: 24, color: '#fff', fontWeight: 800 }} aria-label="FinOps Copilot">FC</span>
           </div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
-            finops-copilot
+            FinOps Copilot
           </h1>
           <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Sign in to your FinOps workspace</p>
         </div>
@@ -62,24 +64,25 @@ export default function LoginPage() {
           padding: 32,
         }}>
           <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Email</label>
+            <label htmlFor="email" style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Email</label>
             <input
               id="email"
+              disabled={!hydrated}
               type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
+              name="email"
+              defaultValue="admin@finops-copilot.local"
               required
               style={{ width: '100%' }}
               placeholder="admin@finops-copilot.local"
             />
           </div>
           <div style={{ marginBottom: 24 }}>
-            <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Password</label>
+            <label htmlFor="password" style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Password</label>
             <input
               id="password"
+              disabled={!hydrated}
               type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
+              name="password"
               required
               style={{ width: '100%' }}
               placeholder="••••••••"
@@ -98,7 +101,7 @@ export default function LoginPage() {
           <button
             id="login-btn"
             type="submit"
-            disabled={loading}
+            disabled={loading || !hydrated}
             className="btn btn-primary"
             style={{ width: '100%', justifyContent: 'center', padding: '12px 24px' }}
           >

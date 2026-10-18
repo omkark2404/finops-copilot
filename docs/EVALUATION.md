@@ -1,25 +1,33 @@
-# finops-copilot — Evaluation Methodology
+# Reproducible evaluation
 
-## 1. Reproducible Evaluation Principles
-All evaluations are conducted against real FOCUS datasets using historical temporal splits to prevent data leakage.
+Previous README numbers are withdrawn as unverified for this checkout. No retained count or benchmark is evidence of real predictive quality.
 
-## 2. Measured Benchmark Results (Official FOCUS Real Dataset)
+Supply a licensed real CSV/Parquet with complete daily coverage for forecasts:
 
-Evaluated on official FinOps Foundation FOCUS 1.0 Real Dataset (`focus_sample.csv`, 1,000 billing rows):
+```bash
+cd backend
+.venv/bin/python run_evaluation.py --input /absolute/path/billing.csv \
+  --sha256 <verified-source-checksum> --source-url <documented-source> \
+  --data-license <license-or-permission-reference> --output /tmp/finops-evaluation.json
+```
 
-| Domain | Metric | Measured Value | Target / Status | Description |
-|---|---|---|---|---|
-| **Ingestion** | Processing Time | 0.30s (1,000 rows) | < 1.0s / `PASS` | Ingests CSV/Parquet, validates schema & SHA-256 hash |
-| **Forecasting** | Model Method | Holt-Winters (`exp_smoothing`) | Automated / `PASS` | Evaluated against Naive and Moving Average baselines |
-| **Forecasting** | MAE | $1.15 | Minimized / `PASS` | Mean absolute error on temporal validation split |
-| **Forecasting** | RMSE | $1.28 | Minimized / `PASS` | Root mean squared error on temporal validation split |
-| **Forecasting** | WAPE | 98.98% | Evaluated / `PASS` | High WAPE due to low baseline spend near $0-$1/day |
-| **Anomaly Detection** | Spikes Flagged | 61 Anomalies | Detected / `PASS` | Robust Z-score (median/MAD) and EWMA algorithms |
-| **Agent Pipeline** | DAG Execution | 7/7 Agents Succeeded | 100% / `PASS` | Duration: 9.25s for 7-agent dependent pipeline |
-| **Critic Gate** | Final Decision | `APPROVE` (100% conf) | Safe / `PASS` | Passed safety, evidence, and assumption checks |
-| **Gemini Fallback** | `MockLLMProvider` | 7/7 Agents Succeeded | Offline / `PASS` | 100% operational without external LLM API |
-| **Backend Tests** | Pytest Suite | **29/29 Passed** | 100% / `PASS` | Execution time: ~3.5s across all analytics, API, & storage tests |
-| **Frontend Build** | Next.js Build | **15/15 Routes** | 100% / `PASS` | 0 TypeScript or build errors |
+The runner verifies the hash, uses a valid UUID and temporary storage, records environment/source/row/period information, and returns measured ingestion duration, spend, anomaly count and recursive forecast/test/baseline metrics when the data supports them. It uses offline explanations. It does not declare arbitrary metrics PASS or claim that sample data is authentic customer billing.
 
-## 3. Baseline Comparisons
-Model selection evaluates LightGBM and Holt-Winters against naive and 7-day moving average baselines. If advanced model WAPE exceeds the baseline WAPE on temporal validation splits, the engine automatically selects the baseline model.
+A completed run proves execution only. Assess forecast errors against business tolerances and matched baselines; assess anomaly usefulness with labeled/reviewed alerts, false positives and missed events. The public-sample result below is now reproducible. Labeled anomaly precision/recall, realized savings and customer user counts remain unestablished.
+
+Synthetic tests and browser screenshots are engineering verification, clearly separate from this real-data evaluation. CI runs tests, typecheck, lint, build and a browser workflow; test counts belong in actual run output rather than a static accuracy badge.
+
+## Pinned public-data run
+
+See [aggregate results](evaluation/public-focus-10000.json). The FOCUS-Sample-Data contributors describe the source as anonymized real-world billing data and publish it under CC BY 4.0. Attribution, immutable source URL, repository commit and SHA-256 are included in the result. No source rows were deleted, generated or reweighted; the 10,000-line sample is not a complete customer invoice.
+
+```bash
+# From the repository root; downloads and verifies the pinned public source.
+backend/.venv/bin/python backend/evaluate_public_sample.py --output /tmp/public-focus-results.json
+```
+
+Observed 17 October 2026: 10,000 rows, USD, 1–30 September 2024. Independent decimal summation and the application's two-decimal billed-cost display both return **151.43**, difference **0.00**. Quality is WARN: negative credit-like values and 49 potential duplicate rows are disclosed and retained.
+
+The selected moving-average model has **test WAPE 0.801 (80.1% error)**, MAE 10.8703 and RMSE 17.3519. Naive test MAE is also 10.8703. This does not establish useful predictive accuracy or a meaningful improvement over the baseline. Selection uses six validation days and evaluation uses six later test days; neither is evidence of 30-day predictive performance. LightGBM is correctly ineligible because the training sample is too short.
+
+There are 100 statistical flags, but no trusted anomaly labels. That is a count, not precision/recall or evidence of confirmed waste. Obtain longer representative billing histories and reviewed labels before claiming predictive quality. Do not tune hyperparameters against this held-out test and then present it as untouched evaluation.

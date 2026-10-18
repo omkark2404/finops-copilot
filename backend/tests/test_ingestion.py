@@ -3,11 +3,8 @@ Unit tests for FOCUS ingestion.
 
 SYNTHETIC TEST FIXTURE — NOT REAL BILLING DATA.
 """
-import hashlib
-import tempfile
-from pathlib import Path
+
 import pandas as pd
-import pytest
 
 
 def make_focus_csv(tmp_path, rows=10) -> str:
@@ -23,8 +20,8 @@ def make_focus_csv(tmp_path, rows=10) -> str:
         "BillingAccountId": ["acc-001"] * rows,
         "ServiceName": ["Compute"] * rows,
         "RegionId": ["us-east-1"] * rows,
-        "ChargePeriodStart": [f"2024-01-{i+1:02d}T00:00:00Z" for i in range(rows)],
-        "ChargePeriodEnd": [f"2024-01-{i+1:02d}T23:59:59Z" for i in range(rows)],
+        "ChargePeriodStart": [f"2024-01-{i + 1:02d}T00:00:00Z" for i in range(rows)],
+        "ChargePeriodEnd": [f"2024-01-{i + 1:02d}T23:59:59Z" for i in range(rows)],
     }
     df = pd.DataFrame(data)
     path = tmp_path / "synthetic_test_fixture.csv"
@@ -35,6 +32,7 @@ def make_focus_csv(tmp_path, rows=10) -> str:
 def test_detect_focus_version_v1_0(tmp_path):
     from app.ingestion import detect_focus_version
     from app.schemas import FocusVersion
+
     path = make_focus_csv(tmp_path)
     df = pd.read_csv(path)
     version = detect_focus_version(df)
@@ -42,7 +40,8 @@ def test_detect_focus_version_v1_0(tmp_path):
 
 
 def test_normalize_columns(tmp_path):
-    from app.ingestion import normalize_to_canonical, detect_focus_version
+    from app.ingestion import detect_focus_version, normalize_to_canonical
+
     path = make_focus_csv(tmp_path)
     df = pd.read_csv(path)
     version = detect_focus_version(df)
@@ -53,8 +52,12 @@ def test_normalize_columns(tmp_path):
 
 
 def test_null_rate_computation(tmp_path):
-    from app.ingestion import validate_focus_data, normalize_to_canonical, detect_focus_version
-    from app.schemas import FocusVersion
+    from app.ingestion import (
+        detect_focus_version,
+        normalize_to_canonical,
+        validate_focus_data,
+    )
+
     path = make_focus_csv(tmp_path)
     df = pd.read_csv(path)
     version = detect_focus_version(df)
@@ -66,6 +69,7 @@ def test_null_rate_computation(tmp_path):
 
 def test_content_hash_deterministic(tmp_path):
     from app.ingestion import compute_file_hash
+
     path = make_focus_csv(tmp_path)
     h1 = compute_file_hash(str(path))
     h2 = compute_file_hash(str(path))
@@ -76,6 +80,7 @@ def test_content_hash_deterministic(tmp_path):
 def test_reject_missing_required_fields():
     from app.ingestion import validate_focus_data
     from app.schemas import FocusVersion, QualityStatus
+
     # SYNTHETIC TEST FIXTURE
     df = pd.DataFrame({"SomeRandomColumn": [1, 2, 3]})
     report = validate_focus_data(df, FocusVersion.v1_0)

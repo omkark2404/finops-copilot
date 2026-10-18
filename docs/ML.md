@@ -1,41 +1,13 @@
-# finops-copilot — Machine Learning & Statistical Methods
+# Statistical methods and forecast evaluation
 
-## 1. Anomaly Detection Engine
+Anomaly baselines use previous observations only. Robust median/MAD uses up to 28 prior observations; rolling/EWMA methods also shift history first. A constant prior history uses an explicit deviation rule. Scores are heuristics, not calibrated probabilities. Missing observed days are not presumed zero. Anomaly counts do not measure precision or recall; no labeled real-data performance is claimed.
 
-Anomalies are detected purely through statistical and algorithmic methods without LLM involvement.
+Forecast input must contain at least five unique finite daily observations with complete calendar coverage. Missing days cause an actionable error. Values are not silently filled with zeros.
 
-### Algorithms Implemented
-1. **Robust Z-score (Median / MAD)**: Primary method. Uses median and Median Absolute Deviation (MAD) to detect spikes resistant to historical outliers.
-   $$\text{Modified } Z = \frac{0.6745 \cdot (X_i - \text{Median})}{\text{MAD}}$$
-2. **EWMA (Exponentially Weighted Moving Average)**: Tracks exponential trend and flags points exceeding span-based standard deviation bounds.
-3. **Rolling Z-score**: 14-day rolling mean and standard deviation window.
+Candidates: last-value naive, seven-observation moving average, eligible Holt-Winters and LightGBM. LightGBM requires at least 60 training observations and shares one feature generator between training and recursive inference, including sample standard deviation. Models use a 60/20/20 temporal split. Each validation candidate predicts recursively from the same fixed origin; selection uses validation MAE, not test data. The selected candidate is fit on train+validation to predict the untouched test window. Final future predictions refit on all observed data.
 
-### Severity Classification
-- **Low**: Deviation < 25%
-- **Medium**: Deviation 25% – 50%
-- **High**: Deviation 50% – 100%
-- **Critical**: Deviation > 100%
+Returned metrics are untouched-test MAE, RMSE, WAPE and predicted-minus-actual bias; zero-denominator WAPE is unavailable. Baseline metrics use the same test window. Metadata records validation/test horizons and failures. Those horizons can differ from the user-requested future horizon; the UI discloses this, and no claim of validated 90-day accuracy follows from a shorter test.
 
----
+This is a single fixed-origin evaluation, not a full rolling-origin study or calibrated prediction interval. Real billing history is needed before asserting model superiority or anomaly usefulness. See EVALUATION.
 
-## 2. Time-Series Forecasting
-
-### Model Progression
-1. **Naive Baseline**: Uses last observed value.
-2. **Moving Average**: 7-day rolling mean.
-3. **Exponential Smoothing**: Holt-Winters exponential smoothing via `statsmodels`.
-4. **LightGBM Regressor**: Gradient-boosted tree model trained on temporal lag and calendar features.
-
-### Strict Temporal Leakage Prevention
-To prevent temporal data leakage:
-- Time-series records are **never randomly shuffled**.
-- Split strategy: **Train (60%) → Validation (20%) → Test (20%)**.
-- All lag features ($t-1, t-7, t-14, t-28$) and rolling means are computed strictly from historical timestamps $t' \le t$.
-- If LightGBM fails to outperform naive/moving-average baseline on validation WAPE, the system automatically falls back to simpler models.
-
-### Evaluation Metrics
-- **MAE** (Mean Absolute Error)
-- **RMSE** (Root Mean Squared Error)
-- **WAPE** (Weighted Absolute Percentage Error):
-  $$\text{WAPE} = \frac{\sum |y_i - \hat{y}_i|}{\sum |y_i|}$$
-- **Bias**: Mean residual ($y_i - \hat{y}_i$).
+Candidates with failed numerical optimization are excluded and recorded. Nonfinite final predictions are rejected. Net-cost forecasts may be negative when credits dominate; predictions are not silently clipped to zero.
