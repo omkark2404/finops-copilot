@@ -1,48 +1,56 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, Any
-from enum import Enum
-from datetime import datetime, date
-import uuid
+
+from datetime import date, datetime
+from enum import StrEnum
+from typing import Any
+
+from pydantic import BaseModel, Field, model_validator
+
 
 # --- Enums ---
-class FocusVersion(str, Enum):
+class FocusVersion(StrEnum):
     v1_0 = "1.0"
     v1_0_1 = "1.0.1"
     unknown = "unknown"
 
-class IngestionStatus(str, Enum):
+
+class IngestionStatus(StrEnum):
     queued = "QUEUED"
     running = "RUNNING"
     succeeded = "SUCCEEDED"
     failed = "FAILED"
     cancelled = "CANCELLED"
 
-class QualityStatus(str, Enum):
+
+class QualityStatus(StrEnum):
     pass_ = "PASS"
     warn = "WARN"
     fail = "FAIL"
 
-class AnomalyMethod(str, Enum):
+
+class AnomalyMethod(StrEnum):
     rolling_zscore = "rolling_zscore"
     ewma = "ewma"
     robust_zscore = "robust_zscore"
     seasonal = "seasonal"
     isolation_forest = "isolation_forest"
 
-class AnomalySeverity(str, Enum):
+
+class AnomalySeverity(StrEnum):
     low = "low"
     medium = "medium"
     high = "high"
     critical = "critical"
 
-class AnomalyStatus(str, Enum):
+
+class AnomalyStatus(StrEnum):
     open = "open"
     investigating = "investigating"
     resolved = "resolved"
     dismissed = "dismissed"
 
-class OpportunityType(str, Enum):
+
+class OpportunityType(StrEnum):
     cost_growth = "cost_growth"
     cost_spike = "cost_spike"
     cost_concentration = "cost_concentration"
@@ -51,32 +59,38 @@ class OpportunityType(str, Enum):
     quantity_growth = "quantity_growth"
     idle_candidate = "idle_candidate"
 
-class RecommendationStatus(str, Enum):
+
+class RecommendationStatus(StrEnum):
     pending = "pending"
     approved = "approved"
     rejected = "rejected"
     simulated = "simulated"
 
-class ScenarioType(str, Enum):
+
+class ScenarioType(StrEnum):
     usage_reduction = "usage_reduction"
     price_change = "price_change"
     budget_reduction = "budget_reduction"
     recommendation_implementation = "recommendation_implementation"
 
-class ForecastMethod(str, Enum):
+
+class ForecastMethod(StrEnum):
     naive = "naive"
     moving_average = "moving_average"
     exp_smoothing = "exp_smoothing"
     lightgbm = "lightgbm"
 
-class AgentStatus(str, Enum):
+
+class AgentStatus(StrEnum):
     queued = "queued"
     running = "running"
     succeeded = "succeeded"
     failed = "failed"
     skipped = "skipped"
+    degraded = "degraded"
 
-class AgentType(str, Enum):
+
+class AgentType(StrEnum):
     data_quality = "data_quality"
     cost_attribution = "cost_attribution"
     anomaly_investigation = "anomaly_investigation"
@@ -85,18 +99,21 @@ class AgentType(str, Enum):
     savings = "savings"
     critic = "critic"
 
-class UserRole(str, Enum):
+
+class UserRole(StrEnum):
     admin = "ADMIN"
     finops_analyst = "FINOPS_ANALYST"
     engineering_manager = "ENGINEERING_MANAGER"
     executive = "EXECUTIVE"
     viewer = "VIEWER"
 
-class DecisionOutcome(str, Enum):
+
+class DecisionOutcome(StrEnum):
     approve = "APPROVE"
     reject = "REJECT"
     escalate = "ESCALATE"
     investigate = "INVESTIGATE"
+
 
 # --- Dataset / Ingestion ---
 class DatasetInfo(BaseModel):
@@ -105,19 +122,21 @@ class DatasetInfo(BaseModel):
     source: str
     focus_version: FocusVersion
     row_count: int
-    date_range_start: Optional[date]
-    date_range_end: Optional[date]
-    currency: Optional[str]
+    date_range_start: date | None
+    date_range_end: date | None
+    currency: str | None
     ingested_at: datetime
     validation_status: QualityStatus
     content_hash: str
     is_demo: bool = False
-    source_url: Optional[str] = None
+    source_url: str | None = None
+
 
 class IngestionRequest(BaseModel):
     dataset_name: str
-    description: Optional[str] = None
-    source_url: Optional[str] = None
+    description: str | None = None
+    source_url: str | None = None
+
 
 # --- Data Quality ---
 class FieldQualityMetric(BaseModel):
@@ -126,6 +145,7 @@ class FieldQualityMetric(BaseModel):
     unique_count: int
     invalid_count: int
     sample_invalids: list[str] = []
+
 
 class DataQualityReport(BaseModel):
     dataset_id: str
@@ -141,11 +161,13 @@ class DataQualityReport(BaseModel):
     warnings: list[str]
     generated_at: datetime
 
+
 # --- Analytics ---
 class SpendDataPoint(BaseModel):
     date: str  # ISO date string
     billed_cost: float
     effective_cost: float
+
 
 class SpendTrend(BaseModel):
     granularity: str
@@ -153,24 +175,27 @@ class SpendTrend(BaseModel):
     period_end: str
     data_points: list[SpendDataPoint]
 
+
 class SpendSummary(BaseModel):
     period_start: str
     period_end: str
     total_billed_cost: float
     total_effective_cost: float
     currency: str
-    mom_change_pct: Optional[float] = None
+    mom_change_pct: float | None = None
     provider_breakdown: dict[str, float]
     account_breakdown: dict[str, float]
     service_breakdown: dict[str, float]
     region_breakdown: dict[str, float]
+
 
 class CostDriver(BaseModel):
     dimension: str
     value: str
     cost: float
     share_pct: float
-    change_pct: Optional[float] = None
+    change_pct: float | None = None
+
 
 class CostAttributionReport(BaseModel):
     dataset_id: str
@@ -179,8 +204,9 @@ class CostAttributionReport(BaseModel):
     top_drivers: list[CostDriver]
     total_cost: float
     concentration_score: float  # HHI 0-1
-    period_over_period_change_pct: Optional[float]
+    period_over_period_change_pct: float | None
     evidence: list[str]
+
 
 # --- Anomaly ---
 class AnomalyDetail(BaseModel):
@@ -199,6 +225,7 @@ class AnomalyDetail(BaseModel):
     supporting_evidence: list[str]
     status: AnomalyStatus = AnomalyStatus.open
 
+
 class AnomalyReport(BaseModel):
     dataset_id: str
     period_start: str
@@ -208,6 +235,7 @@ class AnomalyReport(BaseModel):
     critical_count: int
     high_count: int
 
+
 # --- Opportunity & Optimization ---
 class Opportunity(BaseModel):
     id: str
@@ -216,15 +244,17 @@ class Opportunity(BaseModel):
     entity: str
     description: str
     evidence: list[str]
-    potential_savings_estimate: float
+    potential_savings_estimate: float | None
     confidence: float
     priority_score: float
+
 
 class OpportunityReport(BaseModel):
     dataset_id: str
     opportunities: list[Opportunity]
     total_opportunities: int
-    total_potential_savings: float
+    total_potential_savings: float | None
+
 
 class OptimizationAction(BaseModel):
     action_type: str
@@ -232,6 +262,7 @@ class OptimizationAction(BaseModel):
     rationale: str
     assumptions: list[str]
     confidence: float
+
 
 class OptimizationRecommendation(BaseModel):
     id: str
@@ -244,7 +275,8 @@ class OptimizationRecommendation(BaseModel):
     risk_level: str  # low / medium / high
     evidence: list[str]
     status: RecommendationStatus
-    explanation: Optional[str] = None  # LLM-generated text only
+    explanation: str | None = None  # LLM-generated text only
+
 
 # --- Savings ---
 class SavingsEstimate(BaseModel):
@@ -261,23 +293,27 @@ class SavingsEstimate(BaseModel):
     created_at: datetime
     # NOTE: This is always ESTIMATED savings, never REALIZED savings
 
+
 # --- Forecast ---
 class ForecastPoint(BaseModel):
     date: str
     predicted_cost: float
-    lower_bound: Optional[float] = None
-    upper_bound: Optional[float] = None
+    lower_bound: float | None = None
+    upper_bound: float | None = None
+
 
 class ForecastResult(BaseModel):
+    currency: str | None = None
     entity: str
     method: ForecastMethod
     forecast_horizon_days: int
     points: list[ForecastPoint]
-    metrics: dict[str, float]  # mae, rmse, wape, bias
-    training_period: dict[str, str]
+    metrics: dict[str, float | None]  # mae, rmse, wape, bias
+    training_period: dict[str, Any]
     model_version: str
     generated_at: datetime
-    baseline_metrics: Optional[dict[str, float]] = None  # naive baseline for comparison
+    baseline_metrics: dict[str, float | None] | None = None  # naive baseline for comparison
+
 
 # --- Agent Pipeline ---
 class AgentRunDetail(BaseModel):
@@ -285,14 +321,15 @@ class AgentRunDetail(BaseModel):
     pipeline_run_id: str
     agent_type: AgentType
     status: AgentStatus
-    started_at: Optional[datetime]
-    completed_at: Optional[datetime]
-    duration_seconds: Optional[float]
+    started_at: datetime | None
+    completed_at: datetime | None
+    duration_seconds: float | None
     input_summary: dict[str, Any]
     output_summary: dict[str, Any]
-    confidence: Optional[float]
-    error_message: Optional[str]
+    confidence: float | None
+    error_message: str | None
     retry_count: int = 0
+
 
 class ValidationReport(BaseModel):
     checks_passed: list[str]
@@ -303,39 +340,49 @@ class ValidationReport(BaseModel):
     recommendation_safe: bool
     confidence: float
 
+
 class FinalDecision(BaseModel):
     pipeline_run_id: str
-    recommendation_id: Optional[str]
+    recommendation_id: str | None
     decision: DecisionOutcome
     rationale: str
     evidence_summary: list[str]
     confidence: float
     validated_by_critic: bool
-    human_action: Optional[str] = None  # None / approved / rejected
+    human_action: str | None = None  # None / approved / rejected
     created_at: datetime
+
 
 class PipelineRunDetail(BaseModel):
     id: str
     dataset_id: str
     status: AgentStatus
-    started_at: Optional[datetime]
-    completed_at: Optional[datetime]
+    started_at: datetime | None
+    completed_at: datetime | None
     agent_runs: list[AgentRunDetail]
-    final_decision: Optional[FinalDecision]
+    final_decision: FinalDecision | None
+    recommendations: list[OptimizationRecommendation] = Field(default_factory=list)
+    savings_estimates: list[SavingsEstimate] = Field(default_factory=list)
+    validation: ValidationReport | None = None
+    llm_usage: dict[str, Any] = Field(default_factory=dict)
+
 
 # --- Auth ---
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
+
 class TokenData(BaseModel):
-    email: Optional[str] = None
-    role: Optional[UserRole] = None
+    email: str | None = None
+    role: UserRole | None = None
+
 
 class UserCreate(BaseModel):
-    email: str
-    password: str
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=12, max_length=72)
     role: UserRole = UserRole.viewer
+
 
 class UserResponse(BaseModel):
     id: str
@@ -344,19 +391,23 @@ class UserResponse(BaseModel):
     is_active: bool
     created_at: datetime
 
+
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=72)
+
 
 # --- API ---
 class ErrorResponse(BaseModel):
     error: str
-    detail: Optional[str] = None
+    detail: str | None = None
+
 
 class JobResponse(BaseModel):
     job_id: str
     status: IngestionStatus
     message: str
+
 
 class HealthResponse(BaseModel):
     status: str
@@ -366,26 +417,34 @@ class HealthResponse(BaseModel):
     llm_available: bool
     llm_provider: str
 
+
 class BudgetCreate(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=120)
     entity_type: str
     entity_value: str
     period_type: str
     period_start: date
     period_end: date
-    budget_amount: float
-    currency: str = "USD"
+    budget_amount: float = Field(gt=0, le=1e15, allow_inf_nan=False)
+    currency: str = Field(default="USD", pattern=r"^[A-Z]{3}$")
+
+    @model_validator(mode="after")
+    def valid_period(self):
+        if self.period_end < self.period_start:
+            raise ValueError("End date precedes start date")
+        return self
+
 
 class BudgetSummary(BaseModel):
     id: str
-    name: str
+    name: str = Field(min_length=1, max_length=120)
     entity_type: str
     entity_value: str
     period_start: date
     period_end: date
     budget_amount: float
-    actual_spend: Optional[float]
-    variance: Optional[float]
-    variance_pct: Optional[float]
+    actual_spend: float | None
+    variance: float | None
+    variance_pct: float | None
     status: str  # on_track / at_risk / over_budget
     currency: str

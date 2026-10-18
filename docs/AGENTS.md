@@ -1,50 +1,15 @@
-# finops-copilot — Multi-Agent Pipeline Documentation
+# Staged evidence workflow
 
-## 1. Agent Architecture
+The historical API uses agent names for compatibility, but these are seven workflow functions, not autonomous collaborating agents.
 
-finops-copilot uses a 7-stage dependent pipeline where each agent receives structured Pydantic outputs from previous agents.
+1. Data quality decides whether analysis may continue.
+2. Cost attribution reports deterministic spend and service HHI.
+3. Statistical anomaly evidence identifies unusual prior-baseline deviations.
+4. Opportunity ranking creates investigation candidates, not automatic savings estimates.
+5. Investigation recommendations carry original opportunity evidence and explicit assumptions.
+6. Scenario boundary states that savings need user-supplied assumptions; the pipeline invents none.
+7. A deterministic checklist verifies dataset quality, exact evidence matching, action assumptions and non-destructive descriptions. Missing/contradictory evidence rejects the checklist. Passing requires human investigation, not automatic approval.
 
-```
-1. Data Quality Agent
-       ↓
-2. Cost Attribution Agent
-       ↓
-3. Anomaly Investigation Agent
-       ↓
-4. Opportunity Agent
-       ↓
-5. Optimization Agent
-       ↓
-6. Savings Agent
-       ↓
-7. Critic / Validation Agent → Final Decision
-```
+The checklist is not independent proof of root cause, numerical model validity or narrative truth. Its heuristic score is not a probability. Human approval is recorded through an authenticated endpoint and never modifies cloud resources.
 
----
-
-## 2. Agent Responsibilities
-
-| Agent | Responsibility | Downstream Contract |
-|---|---|---|
-| **1. Data Quality** | Assesses dataset completeness, null rates, and currency uniformity | `is_usable: bool` |
-| **2. Cost Attribution** | Identifies top cost drivers and concentration (HHI) | `CostAttributionReport` |
-| **3. Anomaly Investigation** | Investigates statistical spikes and flags root-cause patterns | `AnomalyReport` |
-| **4. Opportunity** | Formulates optimization candidates based on rule triggers | `OpportunityReport` |
-| **5. Optimization** | Ranks actionable optimization recommendations with risk levels | `list[OptimizationRecommendation]` |
-| **6. Savings** | Computes scenario projections (labelled as ESTIMATED SAVINGS) | `list[SavingsEstimate]` |
-| **7. Critic / Validator** | Performs safety, evidence, and assumption verification | `ValidationReport`, `FinalDecision` |
-
----
-
-## 3. Why Agents Are Distinct From Analytics
-Analytics engines compute numerical truth (sums, z-scores, forecast matrices). Agents perform contextual reasoning over those pre-computed numerical contracts, explaining findings in natural language, checking cross-agent logic consistency, and ensuring recommendations are safe and non-destructive.
-
----
-
-## 4. Critic Validation Rules
-The Critic Agent checks:
-1. Did the data quality gate pass?
-2. Is evidence present for every recommendation?
-3. Are assumptions explicitly disclosed?
-4. Are any proposed actions destructive (e.g. resource deletion)?
-5. Are savings figures clearly labelled as `ESTIMATED SAVINGS`?
+Gemini is optional and receives numeric/bool aggregates only. A per-run call budget, request deadline and output-token bound apply. Unknown narrative numbers are rejected. Runtime failures or budget exhaustion produce degraded offline text and usage counters, not false successful reasoning. Text still requires review. No hallucination-free guarantee is made.

@@ -1,113 +1,77 @@
 'use client'
-import { useEffect, useState } from 'react'
+import {useEffect,useRef,useState} from 'react'
+import Link from 'next/link'
 import Layout from '@/components/Layout'
-import PageHeader from '@/components/PageHeader'
 import DatasetSelector from '@/components/DatasetSelector'
-import { api } from '@/lib/api'
-import { useDataset } from '@/lib/useDataset'
-import { formatCurrency } from '@/lib/format'
-import { Lightbulb, CheckCircle2, XCircle } from 'lucide-react'
-
-export default function RecommendationsPage() {
-  const { datasetId } = useDataset()
-  const [opportunities, setOpportunities] = useState<any | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    if (!datasetId) return
-    setLoading(true)
-    api.opportunities(datasetId)
-      .then(setOpportunities)
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [datasetId])
-
-  const opps = opportunities?.opportunities || []
-
-  return (
-    <Layout>
-      <div style={{ padding: '28px 32px', maxWidth: 1200 }}>
-        <PageHeader
-          title="Optimization Recommendations"
-          subtitle="Ranked actions to optimize cloud spend with auditable evidence"
-          actions={<DatasetSelector />}
-        />
-
-        {opportunities && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
-            <div className="metric-card">
-              <div className="metric-label">Total Opportunities</div>
-              <div className="metric-value">{opportunities.total_opportunities}</div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-label">Potential Est. Savings</div>
-              <div className="metric-value" style={{ color: 'var(--success)' }}>
-                {formatCurrency(opportunities.total_potential_savings)}
-              </div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-label">Status</div>
-              <div className="metric-value" style={{ fontSize: 18 }}>Human Review Required</div>
-            </div>
-          </div>
-        )}
-
-        {loading && <div className="skeleton" style={{ height: 300, borderRadius: 12 }} />}
-
-        {!loading && opps.length === 0 && (
-          <div className="empty-state card" style={{ padding: 64 }}>
-            <Lightbulb size={32} />
-            <span>No recommendations found</span>
-          </div>
-        )}
-
-        {!loading && opps.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {opps.map((o: any, i: number) => (
-              <div key={o.id} className="card" style={{ padding: 24 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Rank #{i + 1} • {o.opportunity_type?.replace(/_/g, ' ')}
-                    </div>
-                    <h3 style={{ fontSize: 16, color: 'var(--text-primary)', fontWeight: 600, marginTop: 4 }}>
-                      Investigate {o.entity}
-                    </h3>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 18, color: 'var(--success)', fontWeight: 700 }}>
-                      {formatCurrency(o.potential_savings_estimate)}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Estimated Savings</div>
-                  </div>
-                </div>
-
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.6 }}>
-                  {o.description}
-                </p>
-
-                {o.evidence?.length > 0 && (
-                  <div style={{ background: 'var(--bg-elevated)', padding: 12, borderRadius: 8, marginBottom: 16 }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>
-                      Supporting Evidence
-                    </div>
-                    <ul style={{ paddingLeft: 16, fontSize: 12, color: 'var(--text-secondary)' }}>
-                      {o.evidence.map((e: string, idx: number) => (
-                        <li key={idx} style={{ marginBottom: 2 }}>{e}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                  <button className="btn btn-ghost">Simulate Scenario</button>
-                  <button className="btn btn-primary">Approve Recommendation</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </Layout>
-  )
+import PageHeader from '@/components/PageHeader'
+import {api} from '@/lib/api'
+import {getSelectedDatasetId,useDataset} from '@/lib/useDataset'
+import {formatCurrency} from '@/lib/format'
+import type {Recommendation,Scenario} from '@/lib/types'
+export default function RecommendationsPage(){
+  const {datasetId}=useDataset()
+  const [items,setItems]=useState<Recommendation[]>([])
+  const [error,setError]=useState<string|null>(null)
+  const [busy,setBusy]=useState<string|null>(null)
+  const [scenario,setScenario]=useState<Scenario|null>(null)
+  const scope=useRef<{id:string|null;active:boolean}|null>(null)
+  const [loading,setLoading]=useState(false)
+  useEffect(()=>{
+    const request={id:datasetId,active:true}
+    scope.current=request
+    setItems([]);setError(null);setScenario(null);setBusy(null);setLoading(Boolean(datasetId))
+    const current=()=>request.active&&scope.current===request&&getSelectedDatasetId()===request.id
+    if(datasetId)api.recommendations(datasetId)
+      .then(x=>{if(current())setItems(x)})
+      .catch(e=>{if(current())setError(e.message)})
+      .finally(()=>{if(current())setLoading(false)})
+    return ()=>{request.active=false}
+  },[datasetId])
+  async function decide(id:string,decision:'approved'|'rejected'){
+    const request=scope.current
+    if(!request?.active||!request.id||request.id!==getSelectedDatasetId())return
+    const current=()=>request.active&&scope.current===request&&getSelectedDatasetId()===request.id
+    setBusy(id);setError(null)
+    try{
+      await api.decide(id,decision)
+      if(!current())return
+      const updated=await api.recommendations(request.id)
+      if(current())setItems(updated)
+    }catch(e){if(current())setError((e as Error).message)}
+    finally{if(current())setBusy(null)}
+  }
+  async function simulate(id:string,percent:number){
+    const request=scope.current
+    if(!request?.active||!request.id||request.id!==getSelectedDatasetId())return
+    const current=()=>request.active&&scope.current===request&&getSelectedDatasetId()===request.id
+    if(!(percent>0&&percent<100)){setError('Enter a reduction strictly between 0 and 100%.');return}
+    setBusy(id);setError(null)
+    try{const result=await api.simulate(id,percent);if(current())setScenario(result)}
+    catch(e){if(current())setError((e as Error).message)}
+    finally{if(current())setBusy(null)}
+  }
+  return <Layout><div className="page-content">
+    <PageHeader title="Investigation recommendations" subtitle="Saved billing investigations. Approval records human review and never changes cloud resources." actions={<DatasetSelector/>}/>
+    {error&&<p role="alert" className="request-error">{error}</p>}
+    {loading&&<p role="status">Loading recommendations…</p>}
+    {!loading&&!items.length&&!error&&<div className="card empty-state">No saved recommendations. <Link href="/agents">Run the analysis workflow</Link></div>}
+    {items.map(item=><section key={item.id} className="card recommendation">
+      <h2>{item.title}</h2><p>{item.description}</p><p>Status: <strong>{item.status}</strong></p>
+      <ul>{item.evidence.map((e,i)=><li key={i}>{e}</li>)}</ul>
+      <div className="actions"><button disabled={busy!==null} className="btn btn-primary" onClick={()=>decide(item.id,'approved')}>Record approval</button>
+      <button disabled={busy!==null} className="btn btn-ghost" onClick={()=>decide(item.id,'rejected')}>Record rejection</button></div>
+      <details><summary>Hypothetical whole-dataset scenario</summary>
+        <p>This applies your assumed reduction to the entire observed dataset. It is not a measured or recommendation-specific achievable saving. Scenarios overlap and must not be added together.</p>
+        <form onSubmit={event=>{event.preventDefault();const form=new FormData(event.currentTarget);void simulate(item.id,Number(form.get("reduction_pct")))}}>
+        <label htmlFor={'pct-'+item.id}>Assumed usage reduction (%)</label>
+        <input id={'pct-'+item.id} type="number" min=".01" max="99.99" step=".01" name="reduction_pct" required/>
+        <button className="btn btn-ghost" type="submit" disabled={busy!==null}>Simulate scenario</button></form>
+      </details>
+    </section>)}
+    {scenario&&<section className="card recommendation" role="status"><h2>Hypothetical estimate</h2>
+      <p>{scenario.scope}</p><p>{scenario.period_start} – {scenario.period_end}</p>
+      <p>Baseline {formatCurrency(scenario.current_cost,scenario.currency)} → projected {formatCurrency(scenario.projected_cost,scenario.currency)}</p>
+      <p>Estimated difference: {formatCurrency(scenario.estimated_savings,scenario.currency)}</p>
+      <ul>{scenario.assumptions.map((a,i)=><li key={i}>{a}</li>)}</ul></section>}
+  </div></Layout>
 }

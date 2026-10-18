@@ -1,44 +1,49 @@
-import axios from 'axios';
+import axios,{type AxiosRequestConfig} from 'axios'
+import type {DatasetInfo,SpendSummary,SpendTrend,Breakdown,AnomalyReport,OpportunityReport,Forecast,QualityReport,Health,Pipeline,Recommendation,Budget,BudgetInput,Scenario} from './types'
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-const client = axios.create({
-  baseURL: BASE_URL,
-});
-
-export function setAuthToken(token: string) {
-  client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-}
-
-export function clearAuthToken() {
-  delete client.defaults.headers.common['Authorization'];
-}
-
-export const api = {
-  spendSummary: async (datasetId: string) => (await client.get(`/spend/summary?dataset_id=${datasetId}`)).data,
-  spendTrend: async (datasetId: string, granularity: string) => (await client.get(`/spend/trend?dataset_id=${datasetId}&granularity=${granularity}`)).data,
-  anomalies: async (datasetId: string) => (await client.get(`/anomalies?dataset_id=${datasetId}`)).data,
-  opportunities: async (datasetId: string) => (await client.get(`/opportunities?dataset_id=${datasetId}`)).data,
-  forecasts: async (datasetId: string, days: number) => (await client.get(`/forecasts?dataset_id=${datasetId}&horizon_days=${days}`)).data,
-  ingestDataset: async (file: File, name: string) => {
-    const fd = new FormData();
-    fd.append('file', file);
-    if (name) fd.append('name', name);
-    return (await client.post('/datasets/ingest', fd)).data;
+// These requests render errors in their dataset-scoped component. Never bypass 401 handling.
+const localErrors:AxiosRequestConfig&{localErrors:boolean}={localErrors:true}
+const client=axios.create({
+  baseURL:process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+  withCredentials:true,
+  timeout:120000,
+  headers:{'X-FinOps-Client':'1'},
+})
+client.interceptors.response.use(response=>response,error=>{
+  const detail=error.response?.data?.detail
+  const message=typeof detail==='string' ? detail : error.message || 'Request failed'
+  if(typeof window!=='undefined'){
+    if(error.response?.status===401 && !window.location.pathname.startsWith('/login')){
+      window.dispatchEvent(new Event('finops:unauthorized'))
+    }else if(!error.config?.localErrors){
+      window.dispatchEvent(new CustomEvent('finops:error',{detail:message}))
+    }
+  }
+  return Promise.reject(new Error(message))
+})
+export const api={
+  login:async(email:string,password:string)=> (await client.post<{access_token:string}>('/auth/login',{email,password})).data,
+  me:async()=> (await client.get<{id:string;email:string;role:string}>('/auth/me')).data,
+  logout:async()=> (await client.post('/auth/logout')).data,
+  listDatasets:async()=> (await client.get<DatasetInfo[]>('/datasets')).data,
+  ingestDataset:async(file:File,name:string)=>{
+    const data=new FormData();data.append('file',file);data.append('dataset_name',name)
+    return (await client.post<{dataset_id:string;dataset_name:string;row_count:number;validation_status:string;status:string}>('/datasets/ingest',data)).data
   },
-  listDatasets: async () => (await client.get('/datasets')).data.datasets,
-  login: async (email: string, pass: string) => (await client.post('/auth/login', {email, password: pass})).data,
-  agentRuns: async (datasetId: string) => {
-    try {
-        return (await client.get(`/agent-runs?dataset_id=${datasetId}`)).data;
-    } catch { return []; }
-  },
-  runAgents: async (datasetId: string) => (await client.post(`/agent-runs?dataset_id=${datasetId}`)).data,
-  runPipeline: async (datasetId: string) => (await client.post(`/agent-runs?dataset_id=${datasetId}`)).data,
-  dataQuality: async (datasetId: string) => (await client.get(`/data-quality?dataset_id=${datasetId}`)).data,
-  deleteDataset: async (datasetId: string) => (await client.delete(`/datasets/${datasetId}`)).data,
-  costDrivers: async (datasetId: string) => (await client.get(`/spend/breakdown?dataset_id=${datasetId}`)).data,
-  investigateAnomaly: async (id: string) => (await client.post(`/anomalies/${id}/investigate`)).data,
-  health: async () => (await client.get('/health')).data,
-  budgets: async () => (await client.get('/budgets')).data
-};
+  deleteDataset:async(id:string)=> (await client.delete('/datasets/'+encodeURIComponent(id))).data,
+  spendSummary:async(id:string)=> (await client.get<SpendSummary>('/spend/summary',{params:{dataset_id:id}})).data,
+  spendTrend:async(id:string,granularity:string)=> (await client.get<SpendTrend>('/spend/trend',{params:{dataset_id:id,granularity}})).data,
+  spendBreakdown:async(id:string,dimension:string,start?:string,end?:string,limit=25)=> (await client.get<Breakdown[]>('/spend/breakdown',{params:{dataset_id:id,dimension,period_start:start,period_end:end,limit}})).data,
+  anomalies:async(id:string,entity_type='service')=> (await client.get<AnomalyReport>('/anomalies',{params:{dataset_id:id,entity_type}})).data,
+  opportunities:async(id:string)=> (await client.get<OpportunityReport>('/opportunities',{params:{dataset_id:id}})).data,
+  forecasts:async(id:string,horizon_days:number)=> (await client.get<Forecast>('/forecasts',{params:{dataset_id:id,horizon_days}})).data,
+  dataQuality:async(id:string)=> (await client.get<QualityReport>('/data-quality',{params:{dataset_id:id}})).data,
+  health:async()=> (await client.get<Health>('/health')).data,
+  budgets:async()=> (await client.get<Budget[]>('/budgets')).data,
+  createBudget:async(body:BudgetInput)=> (await client.post('/budgets',body)).data,
+  agentRuns:async(id:string)=> (await client.get<Pipeline[]>('/agent-runs',{params:{dataset_id:id}})).data,
+  runPipeline:async(id:string)=> (await client.post<Pipeline>('/agent-runs',null,{params:{dataset_id:id}})).data,
+  recommendations:async(id:string)=> (await client.get<Recommendation[]>('/recommendations',{...localErrors,params:{dataset_id:id}})).data,
+  decide:async(id:string,decision:'approved'|'rejected')=> (await client.post('/recommendations/'+id+'/decision',{decision},localErrors)).data,
+  simulate:async(id:string,reduction_pct:number)=> (await client.post<Scenario>('/recommendations/'+id+'/simulate',{reduction_pct},localErrors)).data,
+}

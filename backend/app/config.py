@@ -1,155 +1,82 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Optional, Literal, Union
-from functools import lru_cache
-import logging
+"""Validated runtime settings."""
 
-logger = logging.getLogger(__name__)
+from functools import lru_cache
+from pathlib import Path
+from typing import Literal
+
+from pydantic import Field, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import URL
 
 
 class Settings(BaseSettings):
     postgres_host: str = "localhost"
     postgres_port: int = 5432
-    postgres_db: str = "finops-copilot"
-    postgres_user: str = "postgres"
-    postgres_password: str
-
-    database_url_override: Optional[str] = None
-    use_local_sqlite: bool = False
-
-    redis_url: str = "redis://localhost:6379/0"
-    arq_redis_url: str = "redis://localhost:6379/1"
-
+    postgres_db: str = "finopscopilot"
+    postgres_user: str = "finopsuser"
+    postgres_password: str = ""
+    database_url_override: str | None = None
+    use_local_sqlite: bool = True
     data_dir: str = "./data"
-    frontend_origin: Optional[str] = None
-
-    duckdb_path: str = "./data/finops-copilot.duckdb"
-    parquet_dir: str = "./data/parquet"
-
-    gemini_api_key: Optional[str] = None
+    frontend_origin: str | None = None
+    cors_origins: str = "http://localhost:3000"
+    gemini_api_key: str | None = None
     gemini_model: str = "gemini-3.5-flash-lite"
-
-    jwt_secret_key: str
-    jwt_algorithm: str = "HS256"
-    jwt_access_token_expire_minutes: int = 1440  # 24 hours (prototype default)
-
+    llm_timeout_seconds: float = Field(default=15, gt=0, le=60)
+    llm_run_timeout_seconds: float = Field(default=30, gt=0, le=60)
+    llm_max_calls: int = Field(default=8, ge=0, le=20)
+    jwt_secret_key: str = Field(min_length=24)
+    jwt_algorithm: Literal["HS256"] = "HS256"
+    jwt_access_token_expire_minutes: int = Field(default=60, ge=5, le=1440)
+    admin_email: str = "admin@finops-copilot.local"
+    admin_password: str = Field(min_length=12)
+    cookie_secure: bool = False
+    cookie_samesite: Literal["lax", "strict", "none"] = "lax"
     app_env: Literal["development", "production", "test"] = "development"
     log_level: str = "INFO"
-    cors_origins: Union[list[str], str] = ["http://localhost:3000"]
+    max_upload_bytes: int = Field(default=20_000_000, gt=0, le=100_000_000)
+    max_rows: int = Field(default=100_000, gt=0, le=1_000_000)
+    version: str = "0.2.0"
+    model_config = SettingsConfigDict(env_file=(".env", "../.env"), extra="ignore")
 
     @property
-    def cors_origins_list(self) -> list[str]:
-        origins = []
-        if isinstance(self.cors_origins, list):
-            origins = list(self.cors_origins)
-        elif isinstance(self.cors_origins, str):
-            origins = [
-                origin.strip()
-                for origin in self.cors_origins.split(",")
-                if origin.strip()
-            ]
-        else:
-            origins = ["http://localhost:3000"]
-
-        if self.frontend_origin and self.frontend_origin.strip() not in origins:
-            origins.append(self.frontend_origin.strip())
-
-        return origins
-
-    admin_email: str = "admin@finops-copilot.local"
-    admin_password: str
-    version: str = "0.1.0"
-
-    model_config = SettingsConfigDict(
-        env_file=(".env", "../.env"),
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore",
-    )
-
-    @property
-    def database_url(self) -> str:
-        """
-        Async SQLAlchemy database URL.
-
-        If DATABASE_URL_OVERRIDE is provided, normalize a standard
-        PostgreSQL URL to use asyncpg so it can be consumed by
-        SQLAlchemy's create_async_engine().
-        """
-        if self.database_url_override:
-            url = self.database_url_override.strip()
-
-            # Supabase and other providers may provide:
-            # postgresql://...
-            #
-            # SQLAlchemy's async engine requires:
-            # postgresql+asyncpg://...
-            if url.startswith("postgresql://"):
-                url = url.replace(
-                    "postgresql://",
-                    "postgresql+asyncpg://",
-                    1,
-                )
-
-            return url
-
-        if self.use_local_sqlite or self.postgres_host in (
-            "postgres",
-            "localhost_sqlite",
-            "sqlite",
-        ):
-            return "sqlite+aiosqlite:///./data/finops-copilot.db"
-
-        return (
-            f"postgresql+asyncpg://"
-            f"{self.postgres_user}:"
-            f"{self.postgres_password}@"
-            f"{self.postgres_host}:"
-            f"{self.postgres_port}/"
-            f"{self.postgres_db}"
+    def cors_origins_list(self):
+        return list(
+            dict.fromkeys(
+                x.strip()
+                for x in (self.cors_origins + "," + (self.frontend_origin or "")).split(",")
+                if x.strip()
+            )
         )
 
     @property
-    def sync_database_url(self) -> str:
-        """
-        Synchronous SQLAlchemy database URL.
-
-        Used only where synchronous PostgreSQL access is required.
-        """
-        if self.use_local_sqlite or self.postgres_host in (
-            "postgres",
-            "localhost_sqlite",
-            "sqlite",
-        ):
-            return "sqlite:///./data/finops-copilot.db"
-
+    def database_url(self):
         if self.database_url_override:
-            url = self.database_url_override.strip()
+            return self.database_url_override.replace("postgresql://", "postgresql+asyncpg://", 1)
+        if self.use_local_sqlite:
+            return "sqlite+aiosqlite:///" + str(Path(self.data_dir).resolve() / "finops-copilot.db")
+        return URL.create(
+            "postgresql+asyncpg",
+            username=self.postgres_user,
+            password=self.postgres_password,
+            host=self.postgres_host,
+            port=self.postgres_port,
+            database=self.postgres_db,
+        ).render_as_string(hide_password=False)
 
-            # Normalize asyncpg URL back to standard PostgreSQL
-            # before attaching the synchronous psycopg2 driver.
-            if url.startswith("postgresql+asyncpg://"):
-                url = url.replace(
-                    "postgresql+asyncpg://",
-                    "postgresql+psycopg2://",
-                    1,
+    @model_validator(mode="after")
+    def production_secrets(self):
+        if self.app_env == "production":
+            if not self.cookie_secure or len(self.jwt_secret_key) < 32:
+                raise ValueError(
+                    "Production requires secure cookies and a 32+ character JWT secret"
                 )
-            elif url.startswith("postgresql://"):
-                url = url.replace(
-                    "postgresql://",
-                    "postgresql+psycopg2://",
-                    1,
-                )
-
-            return url
-
-        return (
-            f"postgresql+psycopg2://"
-            f"{self.postgres_user}:"
-            f"{self.postgres_password}@"
-            f"{self.postgres_host}:"
-            f"{self.postgres_port}/"
-            f"{self.postgres_db}"
-        )
+            if (
+                "changeme" in self.admin_password.lower()
+                or "changeme" in self.jwt_secret_key.lower()
+            ):
+                raise ValueError("Replace placeholder production secrets")
+        return self
 
 
 @lru_cache

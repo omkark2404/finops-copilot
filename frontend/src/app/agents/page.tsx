@@ -1,5 +1,6 @@
 'use client'
-import { useState } from 'react'
+import type {Pipeline} from '@/lib/types'
+import { useEffect, useRef, useState } from 'react'
 import Layout from '@/components/Layout'
 import PageHeader from '@/components/PageHeader'
 import DatasetSelector from '@/components/DatasetSelector'
@@ -19,33 +20,40 @@ const AGENT_LABELS: Record<string, string> = {
 
 export default function AgentsPage() {
   const { datasetId } = useDataset()
-  const [result, setResult] = useState<any | null>(null)
+  const [result, setResult] = useState<Pipeline | null>(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
 
+  const requestId = useRef(0)
+  useEffect(() => {
+    setResult(null);setError(null);setRunning(false)
+    requestId.current++
+  }, [datasetId])
+
   const runPipeline = async () => {
     if (!datasetId) return
+    const sequence = ++requestId.current
     setRunning(true)
     setError(null)
     setResult(null)
     try {
       const res = await api.runPipeline(datasetId)
-      setResult(res)
-    } catch (e: unknown) { setError((e as Error).message) } finally {
-      setRunning(false)
+      if(sequence === requestId.current)setResult(res)
+    } catch (e: unknown) { if(sequence === requestId.current)setError((e as Error).message) } finally {
+      if(sequence === requestId.current)setRunning(false)
     }
   }
 
-  const agentRuns = (result?.agent_runs as any[]) || []
-  const decision = result?.final_decision as any | undefined
+  const agentRuns = result?.agent_runs || []
+  const decision = result?.final_decision
 
   return (
     <Layout>
       <div style={{ padding: '28px 32px', maxWidth: 1200 }}>
         <PageHeader
-          title="Agent Pipeline"
-          subtitle="7-agent dependent analysis pipeline: Data Quality → Attribution → Anomaly → Opportunity → Optimization → Savings → Critic"
+          title="Evidence workflow"
+          subtitle="Seven-stage evidence workflow: Data Quality → Attribution → Anomaly → Opportunity → Optimization → Savings → Critic"
           actions={
             <div style={{ display: 'flex', gap: 8 }}>
               <DatasetSelector />
@@ -64,10 +72,10 @@ export default function AgentsPage() {
 
         {/* Pipeline visualization */}
         <div className="card" style={{ padding: 24, marginBottom: 24 }}>
-          <div className="section-title" style={{ marginBottom: 20 }}>Agent Dependency Graph</div>
+          <div className="section-title" style={{ marginBottom: 20 }}>Analysis stages</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 0, overflowX: 'auto', paddingBottom: 8 }}>
             {Object.entries(AGENT_LABELS).map(([key, label], i, arr) => {
-              const run = agentRuns.find((r: any) => r.agent_type === key)
+              const run = agentRuns.find((r) => r.agent_type === key)
               const status = run?.status || (running ? 'queued' : 'idle')
               const color = status === 'succeeded' ? 'var(--success)'
                 : status === 'failed' ? 'var(--danger)'
@@ -77,6 +85,8 @@ export default function AgentsPage() {
                 <div key={key} style={{ display: 'flex', alignItems: 'center' }}>
                   <div
                     onClick={() => setExpanded(expanded === key ? null : key)}
+                    role="button" tabIndex={0} aria-expanded={expanded === key}
+                    onKeyDown={e => {if(e.key === "Enter" || e.key === " "){e.preventDefault();setExpanded(expanded === key ? null : key)}}}
                     style={{
                       padding: '12px 16px',
                       borderRadius: 10,
@@ -89,14 +99,14 @@ export default function AgentsPage() {
                       transition: 'all 0.2s',
                     }}
                   >
-                    <div style={{ fontSize: 11, fontWeight: 700, color, marginBottom: 4 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 4 }}>
                       {status === 'succeeded' ? '✓' : status === 'failed' ? '✗' : status === 'running' ? '⟳' : '○'}
                       {' '}{label.split('. ')[0]}.
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{label.split('. ')[1]}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{label.split('. ')[1]}</div>
                     {run?.confidence && (
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
-                        conf: {(run.confidence * 100).toFixed(0)}%
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                        score: {run.confidence.toFixed(2)}%
                       </div>
                     )}
                   </div>
@@ -112,10 +122,12 @@ export default function AgentsPage() {
         {/* Agent Details */}
         {agentRuns.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-            {agentRuns.map((run: any) => (
+            {agentRuns.map((run) => (
               <div key={run.id} className="card" style={{ overflow: 'hidden' }}>
                 <div
                   onClick={() => setExpanded(expanded === run.id ? null : run.id)}
+                  role="button" tabIndex={0} aria-expanded={expanded === run.id}
+                  onKeyDown={e => {if(e.key === "Enter" || e.key === " "){e.preventDefault();setExpanded(expanded === run.id ? null : run.id)}}}
                   style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
                 >
                   {(run.status as string) === 'succeeded' ? <CheckCircle size={16} style={{ color: 'var(--success)' }} />
@@ -126,33 +138,33 @@ export default function AgentsPage() {
                       {AGENT_LABELS[run.agent_type] || run.agent_type}
                     </span>
                     {run.duration_seconds && (
-                      <span style={{ color: 'var(--text-muted)', fontSize: 11, marginLeft: 12 }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: 12, marginLeft: 12 }}>
                         {run.duration_seconds.toFixed(2)}s
                       </span>
                     )}
                   </div>
-                  {run.confidence && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>conf: {(run.confidence * 100).toFixed(0)}%</span>}
+                  {run.confidence && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>score: {run.confidence.toFixed(2)}%</span>}
                   {expanded === run.id ? <ChevronUp size={14} style={{ color: 'var(--text-muted)' }} /> : <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} />}
                 </div>
                 {expanded === run.id && (
                   <div style={{ padding: '0 20px 16px', borderTop: '1px solid var(--border)' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 12 }}>
                       <div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Input</div>
-                        <pre style={{ fontSize: 11, color: 'var(--text-secondary)', background: 'var(--bg-primary)', padding: 12, borderRadius: 6, overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Input</div>
+                        <pre style={{ fontSize: 12, color: 'var(--text-secondary)', background: 'var(--bg-primary)', padding: 12, borderRadius: 6, overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
                           {JSON.stringify(run.input_summary, null, 2)}
                         </pre>
                       </div>
                       <div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Output</div>
-                        <pre style={{ fontSize: 11, color: 'var(--text-secondary)', background: 'var(--bg-primary)', padding: 12, borderRadius: 6, overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Output</div>
+                        <pre style={{ fontSize: 12, color: 'var(--text-secondary)', background: 'var(--bg-primary)', padding: 12, borderRadius: 6, overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
                           {JSON.stringify(run.output_summary, null, 2)}
                         </pre>
                       </div>
                     </div>
                     {run.output_summary?.explanation && (
                       <div style={{ marginTop: 12 }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase' }}>LLM Explanation</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase' }}>LLM Explanation</div>
                         <div style={{ fontSize: 12, color: 'var(--text-secondary)', background: 'rgba(99,102,241,0.06)', padding: 12, borderRadius: 6, lineHeight: 1.6 }}>
                           {run.output_summary.explanation}
                         </div>
@@ -165,17 +177,17 @@ export default function AgentsPage() {
           </div>
         )}
 
-        {/* Final Decision */}
+        {/* Checklist outcome (human review required) */}
         {decision && (
           <div className="card" style={{ padding: 24, border: `1px solid ${(decision.decision as string) === 'APPROVE' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}` }}>
-            <div className="section-title" style={{ marginBottom: 16 }}>Final Decision</div>
+            <div className="section-title" style={{ marginBottom: 16 }}>Checklist outcome (human review required)</div>
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
               <span className={`badge badge-${(decision.decision as string) === 'APPROVE' ? 'pass' : (decision.decision as string) === 'REJECT' ? 'fail' : 'warn'}`} style={{ fontSize: 13, padding: '6px 14px' }}>
                 {(decision.decision as string)}
               </span>
               <div>
                 <p style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>{(decision.rationale as string)}</p>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Confidence: {((decision.confidence as number) * 100).toFixed(0)}%</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Heuristic score: {((decision.confidence as number)).toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -191,7 +203,7 @@ export default function AgentsPage() {
           <div className="empty-state card" style={{ padding: 64 }}>
             <Bot size={40} style={{ color: 'var(--text-muted)' }} />
             <h3 style={{ color: 'var(--text-primary)', fontSize: 16 }}>Ready to run agent pipeline</h3>
-            <p style={{ fontSize: 13 }}>Select a dataset and click "Run Pipeline" to execute the 7-agent analysis.</p>
+            <p style={{ fontSize: 13 }}>Select a dataset and click &quot;Run Pipeline&quot; to execute the 7-agent analysis.</p>
           </div>
         )}
       </div>

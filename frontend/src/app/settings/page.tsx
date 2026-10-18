@@ -1,21 +1,20 @@
 'use client'
+import type {DatasetInfo,Health} from '@/lib/types'
 import { useEffect, useState } from 'react'
 import Layout from '@/components/Layout'
 import PageHeader from '@/components/PageHeader'
 import { api } from '@/lib/api'
 import { useDataset } from '@/lib/useDataset'
-import { Settings, Upload, CheckCircle, Database, Trash2, AlertTriangle } from 'lucide-react'
+import { Upload, Database, Trash2 } from 'lucide-react'
 
 export default function SettingsPage() {
-  const [health, setHealth] = useState<any | null>(null)
-  const [datasets, setDatasets] = useState<any[]>([])
-  const [datasetName, setDatasetName] = useState('')
-  const [file, setFile] = useState<File | null>(null)
+  const [health, setHealth] = useState<Health | null>(null)
+  const [datasets, setDatasets] = useState<DatasetInfo[]>([])
   const [uploading, setUploading] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
 
-  // Delete modal state
-  const [deletingDataset, setDeletingDataset] = useState<any | null>(null)
+  // Inline deletion confirmation
+  const [deletingDataset, setDeletingDataset] = useState<DatasetInfo | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   const { datasetId, setDatasetId } = useDataset()
@@ -25,18 +24,23 @@ export default function SettingsPage() {
       const list = await api.listDatasets()
       setDatasets(list)
     } catch (e) {
-      console.error(e)
+      setMsg(`Could not load datasets: ${(e as Error).message}`)
     }
   }
 
   useEffect(() => {
-    api.health().then(setHealth).catch(console.error)
+    api.health().then(setHealth).catch(e => setMsg(e.message))
     refreshDatasets()
   }, [])
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!file || !datasetName) return
+    const form=e.currentTarget as HTMLFormElement
+    const fields=new FormData(form)
+    const file=fields.get('file') as File
+    const datasetName=String(fields.get('dataset_name') || '').trim()
+    if (!file || !file.size || !datasetName) return
+    if (file.size > 20_000_000) {setMsg("Upload limit: 20 MB");return}
     setUploading(true)
     setMsg(null)
     try {
@@ -45,8 +49,7 @@ export default function SettingsPage() {
       const status = res.validation_status ?? res.status ?? 'unknown'
       const name = res.dataset_name ?? datasetName
       setMsg(`Dataset "${name}" ingested successfully: ${rows} rows. Status: ${status}`)
-      setDatasetName('')
-      setFile(null)
+      form.reset()
       await refreshDatasets()
       if (res.dataset_id) {
         setDatasetId(res.dataset_id)
@@ -63,7 +66,7 @@ export default function SettingsPage() {
     try {
       await api.deleteDataset(deletingDataset.id)
       setMsg(`Dataset '${deletingDataset.name}' was permanently deleted.`)
-      
+
       const updatedList = await api.listDatasets()
       setDatasets(updatedList)
 
@@ -72,9 +75,7 @@ export default function SettingsPage() {
         if (updatedList.length > 0) {
           setDatasetId(updatedList[0].id)
         } else {
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('cs_dataset_id')
-          }
+
           setDatasetId('')
         }
       }
@@ -96,19 +97,19 @@ export default function SettingsPage() {
           {health ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
               <div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Status</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Status</div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--success)' }}>{health.status}</div>
               </div>
               <div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Database</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Database</div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--success)' }}>{health.database}</div>
               </div>
               <div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>LLM Provider</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>LLM Provider</div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)' }}>{health.llm_provider}</div>
               </div>
               <div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Version</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Version</div>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>v{health.version}</div>
               </div>
             </div>
@@ -117,31 +118,30 @@ export default function SettingsPage() {
 
         {/* Upload FOCUS Dataset */}
         <div className="card" style={{ padding: 24, marginBottom: 24 }}>
-          <div className="section-title" style={{ marginBottom: 8 }}>Ingest Real FOCUS Billing Data</div>
+          <div className="section-title" style={{ marginBottom: 8 }}>Ingest Billing Data</div>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
-            Upload CSV or Parquet files conforming to FOCUS 1.0 / 1.0.1 specifications.
+            Upload CSV or Parquet files using the supported FOCUS-inspired column subset. This is not a full conformance certification.
           </p>
 
           <form onSubmit={handleUpload} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
-              <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Dataset Name</label>
+              <label htmlFor="dataset-name-input" style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Dataset Name</label>
               <input
                 id="dataset-name-input"
                 type="text"
-                value={datasetName}
-                onChange={e => setDatasetName(e.target.value)}
+                name="dataset_name"
                 placeholder="e.g. AWS Focus Q1 2024"
                 required
                 style={{ width: '100%', maxWidth: 400 }}
               />
             </div>
             <div>
-              <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Billing File (CSV / Parquet)</label>
+              <label htmlFor="file-input" style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Billing File (CSV / Parquet)</label>
               <input
                 id="file-input"
                 type="file"
                 accept=".csv,.parquet,.pq"
-                onChange={e => setFile(e.target.files?.[0] || null)}
+                name="file"
                 required
               />
             </div>
@@ -203,48 +203,11 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {/* Confirmation Modal */}
-        {deletingDataset && (
-          <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-          }}>
-            <div className="card" style={{ maxWidth: 460, width: '100%', padding: 24, borderRadius: 12, border: '1px solid var(--border-color)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#ef4444', marginBottom: 16 }}>
-                <AlertTriangle size={24} />
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Delete dataset &apos;{deletingDataset.name}&apos;?</h3>
-              </div>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 20 }}>
-                This will permanently remove:
-              </p>
-              <ul style={{ fontSize: 13, color: 'var(--text-muted)', paddingLeft: 20, marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <li>Dataset metadata from database</li>
-                <li>Uploaded raw billing file and Parquet analytics storage</li>
-                <li>DuckDB analytical tables</li>
-                <li>Associated anomalies, forecasts, recommendations, and agent pipeline runs</li>
-              </ul>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                <button
-                  className="btn"
-                  onClick={() => setDeletingDataset(null)}
-                  disabled={deleting}
-                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)' }}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  style={{ background: '#ef4444', color: '#ffffff' }}
-                >
-                  {deleting ? 'Deleting…' : 'Permanently Delete'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {deletingDataset && <section className="card recommendation" aria-label="Confirm dataset deletion">
+          <h2>Delete {deletingDataset.name}?</h2><p>This permanently removes this dataset and its saved analysis. This cannot be undone.</p>
+          <div className="actions"><button className="btn btn-ghost" onClick={() => setDeletingDataset(null)} disabled={deleting}>Cancel</button>
+          <button className="btn btn-danger" onClick={handleDelete} disabled={deleting}>{deleting ? 'Deleting…' : 'Permanently delete'}</button></div>
+        </section>}
       </div>
     </Layout>
   )

@@ -1,24 +1,11 @@
-"""
-Centralized Persistent Storage Module for finops-copilot (Prototype Storage).
+"""Local Parquet storage with UUID path validation. Metadata and data need joint backups."""
 
-All runtime analytics files (Parquet datasets, DuckDB database, uploads) resolve
-under the root DATA_DIR configuration (env var DATA_DIR).
-
-Local default: ./data
-Render Production (Prototype): local filesystem under DATA_DIR
-
-Security:
-  - dataset_id is UUID-validated before any path construction to prevent path traversal attacks.
-  - PostgreSQL database stores ONLY environment-independent relative keys (parquet/<uuid>/data.parquet).
-"""
 from __future__ import annotations
 
 import logging
-import os
 import shutil
 import uuid
 from pathlib import Path
-from typing import Optional, Tuple
 
 from .config import get_settings
 
@@ -26,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 # ── ID Validation ─────────────────────────────────────────────────────────────
+
 
 def validate_dataset_id(dataset_id: str) -> str:
     """
@@ -40,6 +28,7 @@ def validate_dataset_id(dataset_id: str) -> str:
 
 
 # ── Storage Path Resolvers ────────────────────────────────────────────────────
+
 
 def get_data_dir() -> Path:
     """Return resolved root DATA_DIR directory (creating if missing)."""
@@ -87,7 +76,8 @@ def get_relative_parquet_key(dataset_id: str) -> str:
 
 # ── Verification & File Operations ───────────────────────────────────────────
 
-def verify_dataset_parquet_exists(dataset_id: str) -> Tuple[bool, Optional[str]]:
+
+def verify_dataset_parquet_exists(dataset_id: str) -> tuple[bool, str | None]:
     """
     Verify that the dataset Parquet file exists, is a regular file, and is non-empty.
     Returns (True, None) if valid, or (False, error_reason) if invalid.
@@ -105,7 +95,7 @@ def verify_dataset_parquet_exists(dataset_id: str) -> Tuple[bool, Optional[str]]
         return False, str(e)
 
 
-def dataset_parquet_exists(dataset_id: str) -> Tuple[bool, Optional[str]]:
+def dataset_parquet_exists(dataset_id: str) -> tuple[bool, str | None]:
     """Alias for verify_dataset_parquet_exists."""
     return verify_dataset_parquet_exists(dataset_id)
 
@@ -128,10 +118,11 @@ def delete_dataset_parquet(dataset_id: str) -> None:
     try:
         dataset_dir = get_dataset_dir(dataset_id)
         if dataset_dir.exists():
-            shutil.rmtree(dataset_dir, ignore_errors=True)
+            shutil.rmtree(dataset_dir)
             logger.info("Deleted dataset directory: %s", dataset_dir)
-    except Exception as e:
-        logger.warning("Failed to delete dataset directory for %s: %s", dataset_id, e)
+    except Exception:
+        logger.exception("Failed to delete dataset directory")
+        raise
 
 
 def delete_raw_upload(dataset_id: str) -> None:
@@ -141,8 +132,9 @@ def delete_raw_upload(dataset_id: str) -> None:
         uploads_dir = get_uploads_dir()
         for f in uploads_dir.glob(f"{valid_id}*"):
             f.unlink(missing_ok=True)
-    except Exception as e:
-        logger.warning("Failed to delete raw upload for %s: %s", dataset_id, e)
+    except Exception:
+        logger.exception("Failed to delete raw upload")
+        raise
 
 
 def delete_dataset_storage(dataset_id: str) -> None:

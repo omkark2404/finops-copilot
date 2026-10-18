@@ -6,30 +6,31 @@ Handles:
 - FOCUS version detection (1.0, 1.0.1)
 - Schema validation and data quality checks
 - Normalization to canonical cost model
-- Content hashing for deduplication
+- Content hashing for provenance
 - Parquet storage for analytical queries
 - Provenance recording
 
-NEVER silently mutates raw data.
+Raw inputs are preserved until successful ingestion, then deleted by the API.
 NEVER generates synthetic billing data.
 """
+
 from __future__ import annotations
 
+import csv
 import hashlib
-import json
-import uuid
-from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
-import duckdb
 import numpy as np
 import pandas as pd
 
 from .config import get_settings
 from .schemas import (
-    DataQualityReport, DatasetInfo, FieldQualityMetric, FocusVersion, QualityStatus
+    DataQualityReport,
+    FieldQualityMetric,
+    FocusVersion,
+    QualityStatus,
 )
+from .time import utcnow
 
 # FOCUS canonical column mappings by version
 # Maps provider-specific names to canonical names
@@ -54,6 +55,9 @@ FOCUS_V1_0_COLUMNS = {
     "BillingPeriodStart": "billing_period_start",
     "BillingPeriodEnd": "billing_period_end",
     "BillingCurrency": "currency",
+    "ConsumedUnit": "consumed_unit",
+    "PricingUnit": "pricing_unit",
+    "PricingQuantity": "pricing_quantity",
 }
 
 FOCUS_V1_0_1_COLUMNS = {
@@ -70,17 +74,41 @@ FOCUS_V1_0_1_COLUMNS = {
 }
 
 REQUIRED_CANONICAL_FIELDS = [
-    "billed_cost", "charge_period_start", "charge_period_end", "currency"
+    "billed_cost",
+    "charge_period_start",
+    "charge_period_end",
+    "currency",
 ]
 
-NUMERIC_FIELDS = ["billed_cost", "effective_cost", "list_cost", "contracted_cost", "quantity"]
-DATE_FIELDS = ["charge_period_start", "charge_period_end", "billing_period_start", "billing_period_end"]
+NUMERIC_FIELDS = [
+    "billed_cost",
+    "effective_cost",
+    "list_cost",
+    "contracted_cost",
+    "quantity",
+]
+DATE_FIELDS = [
+    "charge_period_start",
+    "charge_period_end",
+    "billing_period_start",
+    "billing_period_end",
+]
 
 
 def detect_focus_version(df: pd.DataFrame) -> FocusVersion:
     cols = set(df.columns)
-    v1_0_required = {"BilledCost", "ChargePeriodStart", "ChargePeriodEnd", "BillingCurrency"}
-    v1_0_1_cols = {"ResourceName", "ResourceType", "CommitmentDiscountId", "PricingUnit"}
+    v1_0_required = {
+        "BilledCost",
+        "ChargePeriodStart",
+        "ChargePeriodEnd",
+        "BillingCurrency",
+    }
+    v1_0_1_cols = {
+        "ResourceName",
+        "ResourceType",
+        "CommitmentDiscountId",
+        "PricingUnit",
+    }
     if v1_0_1_cols.intersection(cols):
         return FocusVersion.v1_0_1
     if v1_0_required.issubset(cols):
@@ -98,8 +126,63 @@ def get_column_mapping(version: FocusVersion) -> dict[str, str]:
     return FOCUS_V1_0_COLUMNS
 
 
+MAX_COLUMNS = 200
+MAX_HEADER_CHARS = 65_536
+MAX_RECORD_CHARS = 1_000_000
+
+
+def _validate_columns(names):
+    if len(names) > MAX_COLUMNS:
+        raise ValueError("At most 200 input columns are supported")
+    canonical = [FOCUS_V1_0_1_COLUMNS.get(name, name) for name in names]
+    if len(set(canonical)) != len(canonical):
+        raise ValueError("Duplicate or conflicting column names after normalization")
+
+
+def _preflight_csv(path):
+    """Bound record size/width before Pandas can allocate arrays or implicit indexes."""
+    names = None
+    record_chars = 0
+    rows = 0
+    with path.open(encoding="utf-8-sig", newline="") as stream:
+
+        def lines():
+            nonlocal record_chars
+            while True:
+                limit = MAX_HEADER_CHARS if names is None else MAX_RECORD_CHARS
+                line = stream.readline(limit - record_chars + 1)
+                if not line:
+                    return
+                record_chars += len(line)
+                if record_chars > limit:
+                    raise ValueError("CSV header or record exceeds the supported character limit")
+                yield line
+
+        try:
+            for row in csv.reader(lines(), strict=True):
+                record_chars = 0
+                if not row or (len(row) == 1 and not row[0].strip()):
+                    continue
+                if names is None:
+                    names = row
+                    _validate_columns(names)
+                else:
+                    if len(row) != len(names):
+                        raise ValueError(
+                            "CSV rows must have the same number of fields as the header"
+                        )
+                    rows += 1
+                    if rows > get_settings().max_rows:
+                        raise ValueError("Dataset exceeds configured row limit")
+        except (csv.Error, UnicodeDecodeError) as error:
+            raise ValueError("Invalid UTF-8 CSV or unsupported field size/quoting") from error
+    if names is None:
+        raise ValueError("CSV must contain a header")
+
+
 def normalize_to_canonical(df: pd.DataFrame, version: FocusVersion) -> pd.DataFrame:
-    """Map provider column names to canonical names. Does not modify values."""
+    """Map provider column names to canonical names. Coerces invalid numeric/date values for explicit validation."""
+    _validate_columns(list(df.columns))
     mapping = get_column_mapping(version)
     # Only rename columns that exist in the dataframe
     rename_map = {k: v for k, v in mapping.items() if k in df.columns}
@@ -129,15 +212,19 @@ def compute_file_hash(file_path: str) -> str:
 
 def validate_focus_data(df: pd.DataFrame, version: FocusVersion) -> DataQualityReport:
     """Comprehensive data quality validation."""
-    now = datetime.utcnow()
+    now = utcnow()
     issues = []
     warnings = []
     total_rows = len(df)
+    if total_rows == 0:
+        raise ValueError("Billing dataset must contain rows")
+    valid_mask = pd.Series(True, index=df.index)
 
     # Check for required canonical fields
     missing_required = [f for f in REQUIRED_CANONICAL_FIELDS if f not in df.columns]
     if missing_required:
         issues.append(f"Missing required fields: {missing_required}")
+        valid_mask[:] = False
 
     # Null rate per field
     null_rate_by_field = {}
@@ -156,28 +243,50 @@ def validate_focus_data(df: pd.DataFrame, version: FocusVersion) -> DataQualityR
                 warnings.append(f"{col}: {invalid_count} negative values (may be credits)")
             nan_count = int(df[col].isna().sum())
             if nan_count > total_rows * 0.1:
-                issues.append(f"{col}: {nan_count} missing values ({nan_count/total_rows:.1%})")
+                issues.append(f"{col}: {nan_count} missing values ({nan_count / total_rows:.1%})")
 
         if col in DATE_FIELDS:
             nat_count = int(df[col].isna().sum())
             if nat_count > 0:
                 issues.append(f"{col}: {nat_count} invalid or missing dates")
 
-        field_metrics.append(FieldQualityMetric(
-            field_name=col,
-            null_rate=null_rate,
-            unique_count=int(df[col].nunique()),
-            invalid_count=invalid_count,
-            sample_invalids=sample_invalids[:3],
-        ))
+        field_metrics.append(
+            FieldQualityMetric(
+                field_name=col,
+                null_rate=null_rate,
+                unique_count=int(df[col].nunique()),
+                invalid_count=invalid_count,
+                sample_invalids=sample_invalids[:3],
+            )
+        )
 
     # Duplicate detection
-    id_cols = [c for c in ["charge_period_start", "account", "service", "resource", "billed_cost"] if c in df.columns]
+    id_cols = [
+        c
+        for c in [
+            "charge_period_start",
+            "account",
+            "service",
+            "resource",
+            "billed_cost",
+        ]
+        if c in df.columns
+    ]
     duplicate_rows = 0
     if id_cols:
         duplicate_rows = int(df.duplicated(subset=id_cols).sum())
         if duplicate_rows > 0:
             warnings.append(f"{duplicate_rows} potential duplicate rows detected")
+
+    for col in NUMERIC_FIELDS:
+        if col in df:
+            nonmissing = df[col].dropna()
+            if not np.isfinite(nonmissing).all():
+                issues.append(f"{col}: nonfinite values")
+                valid_mask &= df[col].isna() | np.isfinite(df[col])
+    if "billed_cost" in df and (df["billed_cost"].abs() > 1e15).any():
+        issues.append("Billed cost exceeds supported numeric range")
+        valid_mask &= df["billed_cost"].abs() <= 1e15
 
     # Currency consistency
     currency_consistent = True
@@ -185,7 +294,9 @@ def validate_focus_data(df: pd.DataFrame, version: FocusVersion) -> DataQualityR
         currencies = df["currency"].dropna().unique()
         if len(currencies) > 1:
             currency_consistent = False
-            warnings.append(f"Multiple currencies detected: {list(currencies)}")
+            issues.append(
+                "Mixed billing currencies are not supported; upload one currency per dataset"
+            )
 
     # Date range validation
     date_range_valid = True
@@ -209,7 +320,22 @@ def validate_focus_data(df: pd.DataFrame, version: FocusVersion) -> DataQualityR
     else:
         overall_status = QualityStatus.pass_
 
-    valid_rows = total_rows - duplicate_rows
+    for col in REQUIRED_CANONICAL_FIELDS:
+        if col in df:
+            valid_mask &= df[col].notna()
+    if "billed_cost" in df:
+        valid_mask &= np.isfinite(df["billed_cost"])
+        if not np.isfinite(df["billed_cost"]).all():
+            issues.append("Billed costs must be finite")
+    if "currency" in df:
+        valid_mask &= df["currency"].fillna("").str.fullmatch(r"[A-Z]{3}")
+        if not valid_mask.all():
+            issues.append("Invalid required row values")
+    if all(col in df for col in ["charge_period_start", "charge_period_end"]):
+        valid_mask &= df["charge_period_start"] < df["charge_period_end"]
+    if not valid_mask.all():
+        overall_status = QualityStatus.fail
+    valid_rows = int(valid_mask.sum())
 
     return DataQualityReport(
         dataset_id="",  # Filled in after dataset creation
@@ -230,17 +356,40 @@ def validate_focus_data(df: pd.DataFrame, version: FocusVersion) -> DataQualityR
 def read_focus_file(file_path: str) -> pd.DataFrame:
     """Read CSV or Parquet FOCUS file."""
     path = Path(file_path)
+    if path.exists() and path.stat().st_size > get_settings().max_upload_bytes:
+        raise ValueError("Billing file exceeds configured byte limit")
     if not path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
     if path.suffix.lower() in (".parquet", ".pq"):
+        import pyarrow.parquet as pq
+
+        parquet = pq.ParquetFile(file_path)
+        metadata = parquet.metadata
+        if metadata.num_columns > MAX_COLUMNS:
+            raise ValueError("At most 200 input columns are supported")
+        _validate_columns(parquet.schema_arrow.names)
+        expanded = sum(
+            metadata.row_group(i).column(j).total_uncompressed_size
+            for i in range(metadata.num_row_groups)
+            for j in range(metadata.num_columns)
+        )
+        if expanded > 128_000_000:
+            raise ValueError("Parquet expanded data exceeds 128 MB")
+        if metadata.num_rows > get_settings().max_rows:
+            raise ValueError("Dataset exceeds configured row limit")
         return pd.read_parquet(file_path)
     elif path.suffix.lower() == ".csv":
-        return pd.read_csv(file_path, low_memory=False)
+        _preflight_csv(path)
+        return pd.read_csv(
+            file_path, encoding="utf-8-sig", low_memory=False, nrows=get_settings().max_rows + 1
+        )
     else:
         raise ValueError(f"Unsupported file format: {path.suffix}. Use CSV or Parquet.")
 
 
-def compute_provenance(df: pd.DataFrame, file_path: str, file_hash: str, source_url: Optional[str]) -> dict:
+def compute_provenance(
+    df: pd.DataFrame, file_path: str, file_hash: str, source_url: str | None
+) -> dict:
     """Record full data provenance."""
     start = end = None
     for col in ["charge_period_start", "billing_period_start"]:
@@ -262,7 +411,7 @@ def compute_provenance(df: pd.DataFrame, file_path: str, file_hash: str, source_
         "date_range_start": start,
         "date_range_end": end,
         "currency": currency,
-        "ingestion_timestamp": datetime.utcnow().isoformat(),
+        "ingestion_timestamp": utcnow().isoformat(),
     }
 
 
@@ -270,7 +419,7 @@ def ingest_file(
     file_path: str,
     dataset_id: str,
     dataset_name: str,
-    source_url: Optional[str] = None,
+    source_url: str | None = None,
 ) -> tuple[dict, DataQualityReport]:
     """
     Full ingestion pipeline.
@@ -280,13 +429,17 @@ def ingest_file(
 
     Raises:
         FileNotFoundError, ValueError on invalid input.
-    NEVER silently mutates raw data.
+    Raw inputs are preserved until successful ingestion, then deleted by the API.
     NEVER generates synthetic billing data.
     """
     settings = get_settings()
 
     # Read raw file
     raw_df = read_focus_file(file_path)
+    if len(raw_df.columns) > 200:
+        raise ValueError("At most 200 input columns are supported")
+    if len(raw_df) > settings.max_rows:
+        raise ValueError("Dataset exceeds configured row limit")
     file_hash = compute_file_hash(file_path)
 
     # Detect FOCUS version
@@ -298,12 +451,19 @@ def ingest_file(
     # Validate
     dq_report = validate_focus_data(canonical_df, version)
     dq_report.dataset_id = dataset_id
+    if dq_report.overall_status == QualityStatus.fail:
+        raise ValueError("Invalid billing dataset: " + "; ".join(dq_report.issues))
+    # Optional dimensions are explicit unknowns; effective cost falls back to billed cost.
+    for col in ["provider", "account", "service", "region"]:
+        if col not in canonical_df:
+            canonical_df[col] = "unknown"
+    if "effective_cost" not in canonical_df:
+        canonical_df["effective_cost"] = canonical_df["billed_cost"]
 
     from .storage import (
         get_dataset_parquet_path,
         get_relative_parquet_key,
         verify_dataset_parquet_exists,
-        get_duckdb_path,
     )
 
     # Write canonical Parquet under DATA_DIR/parquet/<dataset_id>/data.parquet
@@ -319,31 +479,9 @@ def ingest_file(
     # Relative key stored in DB record (environment-independent)
     relative_key = get_relative_parquet_key(dataset_id)
 
-    # Register in DuckDB
-    duck = get_duck_for_ingestion(settings)
-    table_name = f"dataset_{dataset_id.replace('-', '_')}"
-    duck.execute(f"""
-        CREATE OR REPLACE TABLE {table_name} AS
-        SELECT * FROM read_parquet('{parquet_path}')
-    """)
-
     # Compute provenance
     provenance = compute_provenance(canonical_df, file_path, file_hash, source_url)
     provenance["focus_version"] = version.value
     provenance["parquet_path"] = relative_key
-    provenance["duckdb_table"] = table_name
 
     return provenance, dq_report
-
-
-def get_duck_for_ingestion(settings):
-    """Get DuckDB connection for ingestion."""
-    from .storage import get_duckdb_path
-    from .db import get_duck
-    try:
-        return get_duck()
-    except Exception:
-        import duckdb
-        duck_path = get_duckdb_path()
-        duck_path.parent.mkdir(parents=True, exist_ok=True)
-        return duckdb.connect(str(duck_path))

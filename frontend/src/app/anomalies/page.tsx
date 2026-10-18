@@ -1,4 +1,5 @@
 'use client'
+import type {AnomalyReport} from '@/lib/types'
 import { useEffect, useState } from 'react'
 import Layout from '@/components/Layout'
 import PageHeader from '@/components/PageHeader'
@@ -10,17 +11,20 @@ import { AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react'
 
 export default function AnomaliesPage() {
   const { datasetId } = useDataset()
-  const [report, setReport] = useState<any | null>(null)
+  const [report, setReport] = useState<AnomalyReport | null>(null)
   const [entityType, setEntityType] = useState('service')
   const [loading, setLoading] = useState(false)
 
+  const [requestError, setRequestError] = useState<string | null>(null)
   useEffect(() => {
+    let active = true
+    setReport(null); setRequestError(null)
     if (!datasetId) return
     setLoading(true)
-    api.anomalies(datasetId, entityType)
-      .then(setReport)
-      .catch(console.error)
-      .finally(() => setLoading(false))
+    api.anomalies(datasetId, entityType).then(value => {if (active) setReport(value)})
+      .catch(e => {if (active) setRequestError(e.message)})
+      .finally(() => {if (active) setLoading(false)})
+    return () => {active = false}
   }, [datasetId, entityType])
 
   const anomalies = report?.anomalies || []
@@ -53,7 +57,7 @@ export default function AnomaliesPage() {
         {/* Controls */}
         <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
           <div className="input-group">
-            <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Group by:</label>
+            <label htmlFor="entity-type-select" style={{ fontSize: 12, color: 'var(--text-muted)' }}>Group by:</label>
             <select id="entity-type-select" value={entityType} onChange={e => setEntityType(e.target.value)}>
               {['service', 'provider', 'account', 'region'].map(t => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -62,8 +66,9 @@ export default function AnomaliesPage() {
 
         {/* Anomaly Table */}
         <div className="card">
-          {loading && <div className="skeleton" style={{ height: 300, margin: 16, borderRadius: 8 }} />}
-          {!loading && anomalies.length === 0 && (
+          {requestError && <p role="alert" className="request-error">{requestError}</p>}
+        {loading && <div className="skeleton" style={{ height: 300, margin: 16, borderRadius: 8 }} />}
+          {!loading && !requestError && anomalies.length === 0 && (
             <div className="empty-state" style={{ padding: 64 }}>
               <AlertTriangle size={32} />
               <h3>No anomalies detected</h3>
@@ -75,18 +80,18 @@ export default function AnomaliesPage() {
               <thead><tr>
                 <th>Entity</th><th>Type</th><th>Date</th>
                 <th>Actual</th><th>Expected</th><th>Deviation</th>
-                <th>Severity</th><th>Method</th><th>Confidence</th>
+                <th>Severity</th><th>Method</th><th>Heuristic score</th>
               </tr></thead>
               <tbody>
-                {anomalies.map((a: any) => (
+                {anomalies.map((a) => (
                   <tr key={a.id}>
                     <td>
                       <div style={{ color: 'var(--text-primary)', fontWeight: 500, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {a.entity_value}
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{a.entity_type}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{a.entity_type}</div>
                     </td>
-                    <td><span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{a.entity_type}</span></td>
+                    <td><span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{a.entity_type}</span></td>
                     <td style={{ fontSize: 12 }}>{a.detected_at?.slice(0, 10)}</td>
                     <td>{formatCurrency(a.actual_cost)}</td>
                     <td style={{ color: 'var(--text-muted)' }}>{formatCurrency(a.expected_cost)}</td>
@@ -97,8 +102,8 @@ export default function AnomaliesPage() {
                       </div>
                     </td>
                     <td><span className={`badge badge-${a.severity}`}>{a.severity}</span></td>
-                    <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>{a.method?.replace(/_/g, ' ')}</td>
-                    <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{(a.confidence * 100).toFixed(0)}%</td>
+                    <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{a.method?.replace(/_/g, ' ')}</td>
+                    <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{a.confidence.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>

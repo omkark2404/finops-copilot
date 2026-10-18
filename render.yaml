@@ -1,44 +1,30 @@
+# Review the paid disk-enabled service in your own account before deploying.
 services:
   - type: web
     name: finops-copilot-backend
-    env: docker
+    runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    region: oregon
-    plan: free
+    plan: 1c-2g
+    healthCheckPath: /health
+    disk:
+      name: analytics
+      mountPath: /app/data
+      sizeGB: 1
     envVars:
-      - key: POSTGRES_HOST
-        fromDatabase:
-          name: finops-copilot-db
-          property: host
-      - key: POSTGRES_PORT
-        fromDatabase:
-          name: finops-copilot-db
-          property: port
-      - key: POSTGRES_DB
-        fromDatabase:
-          name: finops-copilot-db
-          property: database
-      - key: POSTGRES_USER
-        fromDatabase:
-          name: finops-copilot-db
-          property: user
-      - key: POSTGRES_PASSWORD
-        fromDatabase:
-          name: finops-copilot-db
-          property: password
-      - key: REDIS_URL
-        value: "redis://localhost:6379/0"
       - key: APP_ENV
         value: production
+      - key: DATA_DIR
+        value: /app/data
+      - key: USE_LOCAL_SQLITE
+        value: "true"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAMESITE
+        value: none
+      - key: FRONTEND_ORIGIN
+        sync: false
       - key: ADMIN_PASSWORD
         generateValue: true
       - key: JWT_SECRET_KEY
         generateValue: true
-
-databases:
-  - name: finops-copilot-db
-    databaseName: finopscopilot
-    user: finopsuser
-    region: oregon
-    plan: free

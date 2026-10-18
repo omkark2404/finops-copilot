@@ -93,3 +93,13 @@ logs/
 backend/data/parquet/
 data/parquet/
 data/focus_sample/FOCUS-Sample-Data/
+# Uploaded/generated billing data and local test outputs
+data/
+backend/data/
+frontend/test-results/
+frontend/playwright-report/
+*.tsbuildinfo
+
+backend/.e2e-data/
+
+.ruff_cache/

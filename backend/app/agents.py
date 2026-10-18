@@ -11,32 +11,42 @@ Critical principle:
   LLM (Gemini) only explains and reasons over structured evidence.
   Application works without LLM (MockLLMProvider).
 """
+
 from __future__ import annotations
+
 import asyncio
 import json
 import uuid
 from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import Optional
 
-from .analytics import get_cost_drivers, get_spend_summary
+from .analytics import get_cost_drivers
 from .anomaly import run_anomaly_detection
 from .config import get_settings
 from .optimization import run_optimization_analysis
 from .schemas import (
-    AgentRunDetail, AgentStatus, AgentType, AnomalyReport,
-    CostAttributionReport, DataQualityReport, DecisionOutcome,
-    FinalDecision, OpportunityReport, OptimizationRecommendation,
-    OptimizationAction, PipelineRunDetail, RecommendationStatus,
-    SavingsEstimate, ScenarioType, ValidationReport
+    AgentRunDetail,
+    AgentStatus,
+    AgentType,
+    AnomalyReport,
+    CostAttributionReport,
+    DataQualityReport,
+    DecisionOutcome,
+    FinalDecision,
+    OpportunityReport,
+    OptimizationAction,
+    OptimizationRecommendation,
+    PipelineRunDetail,
+    RecommendationStatus,
+    SavingsEstimate,
+    ValidationReport,
 )
-from .scenarios import run_scenario
-
+from .time import utcnow
 
 # ─── LLM Provider Abstraction ───────────────────────────────────────────────
 
+
 class LLMProvider(ABC):
-    """Abstract LLM provider. Gemini is default; Mock is used when unavailable."""
+    """Optional Gemini explanations; deterministic offline mode is the default."""
 
     @abstractmethod
     async def explain(self, evidence: dict, task: str) -> str: ...
@@ -62,71 +72,176 @@ class MockLLMProvider(LLMProvider):
     async def explain(self, evidence: dict, task: str) -> str:
         summary = json.dumps(
             {k: v for k, v in evidence.items() if not isinstance(v, (list, dict))},
-            default=str
+            default=str,
         )
         return (
-            f"[Demo Mode — Gemini API not configured] "
-            f"Task: {task}. "
-            f"Key evidence: {summary[:400]}"
+            f"[Demo Mode — Gemini API not configured] Task: {task}. Key evidence: {summary[:400]}"
         )
+
+
+_EXTERNAL_FIELDS = frozenset(
+    {
+        "total_rows",
+        "valid_rows",
+        "duplicate_rows",
+        "currency_consistent",
+        "total_cost",
+        "top_drivers",
+        "concentration_score",
+        "period_over_period_change_pct",
+        "cost",
+        "share_pct",
+        "change_pct",
+        "row_count",
+        "total_anomalies",
+        "critical_anomalies",
+        "high_anomalies",
+        "top_anomalies",
+        "actual",
+        "expected",
+        "deviation_pct",
+        "attribution_total",
+        "total_opportunities",
+        "total_potential_savings_estimate",
+        "top_opportunities",
+        "priority_score",
+        "confidence",
+        "opportunity",
+        "rank",
+        "potential_savings_estimate",
+        "recommendation_count",
+        "total_estimated_savings",
+        "savings_count",
+        "all_estimated",
+        "validation_passed",
+        "missing_evidence_count",
+        "contradiction_count",
+        "risk_count",
+        "safe_to_proceed",
+        "amount",
+        "items",
+        "total",
+    }
+)
+
+
+def _numeric_evidence(value):
+    # No account names, resource identifiers, arbitrary uploaded strings or prompts leave the app.
+    if isinstance(value, bool) or isinstance(value, (int, float)):
+        return value
+    if isinstance(value, dict):
+        return {
+            str(k): _numeric_evidence(v)
+            for k, v in value.items()
+            if k in _EXTERNAL_FIELDS and isinstance(v, (int, float, bool, dict, list))
+        }
+    if isinstance(value, list):
+        return [
+            _numeric_evidence(v)
+            for v in value[:10]
+            if isinstance(v, (int, float, bool, dict, list))
+        ]
+    return None
+
+
+def _numbers(value):
+    import re
+    from decimal import Decimal
+
+    return {
+        Decimal(x.replace(",", ""))
+        for x in re.findall(r"(?<![A-Za-z])[-+]?\d[\d,]*(?:\.\d+)?", str(value))
+    }
 
 
 class GeminiProvider(LLMProvider):
-    """Google Gemini LLM provider for reasoning/explanation only.
-    
-    CRITICAL: This provider is ONLY used to generate natural-language explanations.
-    All financial calculations, anomaly detection, forecasting, optimization, and
-    savings calculations are performed by deterministic code, never by the LLM.
-    """
+    """Optional bounded narratives. Failed/ungrounded text is replaced with an offline explanation."""
 
-    def __init__(self, api_key: str, model: str):
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        self._model = genai.GenerativeModel(
-            model,
-            system_instruction=(
-                "You are a FinOps analyst assistant. You explain deterministic analytical findings. "
-                "CRITICAL RULES: (1) Never invent or modify numerical values — use only the evidence provided. "
-                "(2) When evidence is ambiguous, say so explicitly. "
-                "(3) Be concise and factual. No marketing language. "
-                "(4) Always distinguish estimated savings from realized savings."
-            )
+    def __init__(self, api_key, model):
+        from google import genai
+        from google.genai import types
+
+        settings = get_settings()
+        self.client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(timeout=int(settings.llm_timeout_seconds * 1000)),
         )
-        self._model_name = model
+        self.model = model
+        self.usage = {
+            "calls": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "failures": 0,
+            "cost": None,
+            "cost_note": "Token counts recorded; currency cost requires provider pricing/billing reconciliation",
+        }
+        self.degraded = False
+        self.started = __import__("time").monotonic()
 
     @property
-    def name(self) -> str:
-        return f"Gemini/{self._model_name}"
+    def name(self):
+        return f"Gemini/{self.model}"
 
-    def is_available(self) -> bool:
-        return True
+    def is_available(self):
+        return not self.degraded
 
-    async def explain(self, evidence: dict, task: str) -> str:
-        prompt = (
-            f"Task: {task}\n\n"
-            f"Deterministic evidence (these numbers are computed — do not modify them):\n"
-            f"{json.dumps(evidence, default=str, indent=2)}\n\n"
-            f"Provide a clear, factual analysis. Use only the evidence provided."
-        )
+    async def explain(self, evidence, task):
+        import time
+
+        from google.genai import types
+
+        settings = get_settings()
+        grounded = _numeric_evidence(evidence)
+        remaining = settings.llm_run_timeout_seconds - (time.monotonic() - self.started)
+        if self.usage["calls"] >= settings.llm_max_calls or remaining <= 0:
+            self.degraded = True
+            return "[Offline explanation: narrative call budget exhausted. Inspect structured evidence.]"
+        self.usage["calls"] += 1
+        started = time.monotonic()
         try:
-            response = await asyncio.to_thread(self._model.generate_content, prompt)
-            return response.text
-        except Exception as e:
-            return f"[Explanation unavailable: {str(e)[:100]}]"
-
-
-def get_llm_provider() -> LLMProvider:
-    """Return Gemini if configured, otherwise Mock."""
-    settings = get_settings()
-    if settings.gemini_api_key:
-        try:
-            return GeminiProvider(settings.gemini_api_key, settings.gemini_model)
+            response = await asyncio.wait_for(
+                self.client.aio.models.generate_content(
+                    model=self.model,
+                    contents=task + "\nNumeric evidence: " + json.dumps(grounded, allow_nan=False),
+                    config=types.GenerateContentConfig(
+                        max_output_tokens=300,
+                        temperature=0,
+                        system_instruction="Explain only supplied evidence. Do not invent causes or amounts. Narratives need human review.",
+                    ),
+                ),
+                timeout=min(settings.llm_timeout_seconds, remaining),
+            )
+            tokens = response.usage_metadata
+            if tokens:
+                self.usage["input_tokens"] += tokens.prompt_token_count or 0
+                self.usage["output_tokens"] += tokens.candidates_token_count or 0
+            output = response.text or ""
+            if not _numbers(output).issubset(_numbers(json.dumps(grounded))):
+                raise ValueError("Narrative introduced an ungrounded number")
+            return output
         except Exception:
-            pass
+            self.degraded = True
+            self.usage["failures"] += 1
+            return "[Offline explanation: narrative unavailable or numerical grounding failed. Inspect structured evidence.]"
+        finally:
+            self.usage["latency_seconds"] = round(
+                self.usage.get("latency_seconds", 0) + time.monotonic() - started, 3
+            )
+
+    async def close(self):
+        await self.client.aio.aclose()
+        self.client.close()
+
+
+def get_llm_provider():
+    settings = get_settings()
+    if settings.gemini_api_key and not settings.gemini_api_key.startswith("your_"):
+        return GeminiProvider(settings.gemini_api_key, settings.gemini_model)
     return MockLLMProvider()
 
 
 # ─── Agent Functions ─────────────────────────────────────────────────────────
+
 
 def _make_run(pipeline_run_id: str, agent_type: AgentType) -> AgentRunDetail:
     return AgentRunDetail(
@@ -156,11 +271,18 @@ async def run_data_quality_agent(
     """
     run = _make_run(pipeline_run_id, AgentType.data_quality)
     run.status = AgentStatus.running
-    run.started_at = datetime.utcnow()
-    run.input_summary = {"dataset_id": dq_report.dataset_id, "total_rows": dq_report.total_rows}
+    run.started_at = utcnow()
+    run.input_summary = {
+        "dataset_id": dq_report.dataset_id,
+        "total_rows": dq_report.total_rows,
+    }
 
     usable = dq_report.overall_status.value != "FAIL"
-    confidence = 0.95 if dq_report.overall_status.value == "PASS" else (0.6 if dq_report.overall_status.value == "WARN" else 0.1)
+    confidence = (
+        0.95
+        if dq_report.overall_status.value == "PASS"
+        else (0.6 if dq_report.overall_status.value == "WARN" else 0.1)
+    )
 
     evidence = {
         "overall_status": dq_report.overall_status.value,
@@ -174,11 +296,11 @@ async def run_data_quality_agent(
 
     explanation = await llm.explain(
         evidence,
-        "Assess dataset quality and determine if it is safe to proceed with analysis."
+        "Assess dataset quality and determine if it is safe to proceed with analysis.",
     )
 
-    run.status = AgentStatus.succeeded
-    run.completed_at = datetime.utcnow()
+    run.status = AgentStatus.degraded if getattr(llm, "degraded", False) else AgentStatus.succeeded
+    run.completed_at = utcnow()
     run.duration_seconds = (run.completed_at - run.started_at).total_seconds()
     run.confidence = confidence
     run.output_summary = {
@@ -197,7 +319,7 @@ async def run_cost_attribution_agent(
     """Agent 2: Cost Attribution. Identifies major cost drivers."""
     run = _make_run(pipeline_run_id, AgentType.cost_attribution)
     run.status = AgentStatus.running
-    run.started_at = datetime.utcnow()
+    run.started_at = utcnow()
 
     evidence = {
         "total_cost": attribution.total_cost,
@@ -209,11 +331,11 @@ async def run_cost_attribution_agent(
 
     explanation = await llm.explain(
         evidence,
-        "Explain the major cost drivers and any notable patterns in the spend attribution."
+        "Explain the major cost drivers and any notable patterns in the spend attribution.",
     )
 
-    run.status = AgentStatus.succeeded
-    run.completed_at = datetime.utcnow()
+    run.status = AgentStatus.degraded if getattr(llm, "degraded", False) else AgentStatus.succeeded
+    run.completed_at = utcnow()
     run.duration_seconds = (run.completed_at - run.started_at).total_seconds()
     run.confidence = 0.9
     run.output_summary = {
@@ -234,7 +356,7 @@ async def run_anomaly_investigation_agent(
     """Agent 3: Anomaly Investigation. Investigates abnormal cost changes."""
     run = _make_run(pipeline_run_id, AgentType.anomaly_investigation)
     run.status = AgentStatus.running
-    run.started_at = datetime.utcnow()
+    run.started_at = utcnow()
 
     critical = [a for a in anomaly_report.anomalies if a.severity.value == "critical"]
     high = [a for a in anomaly_report.anomalies if a.severity.value == "high"]
@@ -259,11 +381,11 @@ async def run_anomaly_investigation_agent(
 
     explanation = await llm.explain(
         evidence,
-        "Investigate the detected anomalies. Which are most significant? What patterns suggest root causes?"
+        "Investigate the detected anomalies. Which are most significant? What patterns suggest root causes?",
     )
 
-    run.status = AgentStatus.succeeded
-    run.completed_at = datetime.utcnow()
+    run.status = AgentStatus.degraded if getattr(llm, "degraded", False) else AgentStatus.succeeded
+    run.completed_at = utcnow()
     run.duration_seconds = (run.completed_at - run.started_at).total_seconds()
     run.confidence = 0.8 if critical or high else 0.9
     run.output_summary = {
@@ -283,7 +405,7 @@ async def run_opportunity_agent(
     """Agent 4: Opportunity Identification."""
     run = _make_run(pipeline_run_id, AgentType.opportunity)
     run.status = AgentStatus.running
-    run.started_at = datetime.utcnow()
+    run.started_at = utcnow()
 
     evidence = {
         "total_opportunities": opp_report.total_opportunities,
@@ -302,16 +424,16 @@ async def run_opportunity_agent(
 
     explanation = await llm.explain(
         evidence,
-        "Summarize the top optimization opportunities identified from deterministic analysis."
+        "Summarize the top optimization opportunities identified from deterministic analysis.",
     )
 
-    run.status = AgentStatus.succeeded
-    run.completed_at = datetime.utcnow()
+    run.status = AgentStatus.degraded if getattr(llm, "degraded", False) else AgentStatus.succeeded
+    run.completed_at = utcnow()
     run.duration_seconds = (run.completed_at - run.started_at).total_seconds()
     run.confidence = 0.75
     run.output_summary = {
         "total_opportunities": opp_report.total_opportunities,
-        "estimated_savings": opp_report.total_potential_savings,
+        "estimated_savings": None,
         "explanation": explanation[:500],
     }
     return run
@@ -326,7 +448,7 @@ async def run_optimization_agent(
     """Agent 5: Optimization. Produces ranked recommendations."""
     run = _make_run(pipeline_run_id, AgentType.optimization)
     run.status = AgentStatus.running
-    run.started_at = datetime.utcnow()
+    run.started_at = utcnow()
 
     recommendations = []
     for i, opp in enumerate(opp_report.opportunities[:10]):
@@ -334,17 +456,22 @@ async def run_optimization_agent(
             f"Investigate {opp.entity}: review current usage patterns, "
             f"identify root cause of cost change, assess optimization options."
         )
-        actions = [OptimizationAction(
-            action_type="investigate",
-            description=action_desc,
-            rationale=opp.description,
-            assumptions=["Investigation required before implementation", "Billing data only — utilization data not available"],
-            confidence=opp.confidence,
-        )]
+        actions = [
+            OptimizationAction(
+                action_type="investigate",
+                description=action_desc,
+                rationale=opp.description,
+                assumptions=[
+                    "Investigation required before implementation",
+                    "Billing data only — utilization data not available",
+                ],
+                confidence=opp.confidence,
+            )
+        ]
 
         explanation = await llm.explain(
             {"opportunity": opp.model_dump(), "rank": i + 1},
-            f"Formulate a specific optimization recommendation for this opportunity. Be honest about data limitations."
+            "Formulate a specific optimization recommendation for this opportunity. Be honest about data limitations.",
         )
 
         rec = OptimizationRecommendation(
@@ -362,8 +489,8 @@ async def run_optimization_agent(
         )
         recommendations.append(rec)
 
-    run.status = AgentStatus.succeeded
-    run.completed_at = datetime.utcnow()
+    run.status = AgentStatus.degraded if getattr(llm, "degraded", False) else AgentStatus.succeeded
+    run.completed_at = utcnow()
     run.duration_seconds = (run.completed_at - run.started_at).total_seconds()
     run.confidence = 0.75
     run.output_summary = {"recommendation_count": len(recommendations)}
@@ -379,29 +506,11 @@ async def run_savings_agent(
     """Agent 6: Savings Estimation. Deterministic calculations, LLM explains."""
     run = _make_run(pipeline_run_id, AgentType.savings)
     run.status = AgentStatus.running
-    run.started_at = datetime.utcnow()
+    run.started_at = utcnow()
 
+    # Billing anomalies do not establish an achievable saving. The user supplies
+    # assumptions explicitly through the persisted scenario endpoint instead.
     savings_estimates = []
-    opp_map = {o.id: o for o in opp_report.opportunities}
-
-    for rec in recommendations[:10]:
-        opp = opp_map.get(rec.opportunity_id)
-        if not opp:
-            continue
-        # Deterministic savings simulation
-        estimate = run_scenario(
-            recommendation_id=rec.id,
-            scenario_type=ScenarioType.recommendation_implementation,
-            config={
-                "current_cost": opp.potential_savings_estimate / max(0.1, opp.confidence),
-                "estimated_savings_pct": min(30, opp.confidence * 30),
-                "assumptions": opp.evidence,
-                "confidence": opp.confidence * 0.8,
-                "entity": opp.entity,
-            }
-        )
-        savings_estimates.append(estimate)
-
     total_est_savings = sum(e.estimated_savings for e in savings_estimates)
 
     evidence = {
@@ -409,18 +518,22 @@ async def run_savings_agent(
         "total_estimated_savings": total_est_savings,
         "note": "ESTIMATED SAVINGS — not realized savings. Requires implementation and validation.",
         "top_estimates": [
-            {"entity": e.scenario_description, "savings": e.estimated_savings, "confidence": e.confidence}
+            {
+                "entity": e.scenario_description,
+                "savings": e.estimated_savings,
+                "confidence": e.confidence,
+            }
             for e in savings_estimates[:3]
-        ]
+        ],
     }
 
     explanation = await llm.explain(
         evidence,
-        "Summarize the savings estimates. Clearly distinguish estimated from realized savings. Note all assumptions."
+        "Summarize the savings estimates. Clearly distinguish estimated from realized savings. Note all assumptions.",
     )
 
-    run.status = AgentStatus.succeeded
-    run.completed_at = datetime.utcnow()
+    run.status = AgentStatus.degraded if getattr(llm, "degraded", False) else AgentStatus.succeeded
+    run.completed_at = utcnow()
     run.duration_seconds = (run.completed_at - run.started_at).total_seconds()
     run.confidence = 0.6
     run.output_summary = {
@@ -445,7 +558,7 @@ async def run_critic_agent(
     """
     run = _make_run(pipeline_run_id, AgentType.critic)
     run.status = AgentStatus.running
-    run.started_at = datetime.utcnow()
+    run.started_at = utcnow()
 
     checks_passed = []
     checks_failed = []
@@ -467,6 +580,15 @@ async def run_critic_agent(
         else:
             checks_passed.append(f"Evidence present for: {rec.title[:50]}")
 
+    # Each recommendation must retain its exact deterministic opportunity evidence.
+    known = all_outputs.get("evidence_by_opportunity", {})
+    for rec in recommendations:
+        source = known.get(rec.opportunity_id)
+        if source is None or rec.evidence != source:
+            contradictions.append(f"Evidence does not match opportunity: {rec.id}")
+        if not rec.actions:
+            missing_evidence.append(f"No review action for recommendation: {rec.id}")
+
     # Check 3: Assumptions disclosed
     for rec in recommendations:
         for action in rec.actions:
@@ -478,11 +600,21 @@ async def run_critic_agent(
     # Check 4: No destructive actions
     for rec in recommendations:
         for action in rec.actions:
-            destructive_keywords = ["delete", "terminate", "destroy", "shutdown", "remove"]
+            destructive_keywords = [
+                "delete",
+                "terminate",
+                "destroy",
+                "shutdown",
+                "remove",
+            ]
             if any(kw in action.description.lower() for kw in destructive_keywords):
-                checks_failed.append(f"Recommendation contains potentially destructive action: {action.description[:100]}")
+                checks_failed.append(
+                    f"Recommendation contains potentially destructive action: {action.description[:100]}"
+                )
             else:
-                checks_passed.append(f"Safety check: no destructive action in '{action.action_type}'")
+                checks_passed.append(
+                    f"Safety check: no destructive action in '{action.action_type}'"
+                )
 
     # Check 5: Savings clearly labelled as ESTIMATED
     savings_data = all_outputs.get("savings_note", "")
@@ -491,8 +623,10 @@ async def run_critic_agent(
     else:
         unsupported_claims.append("Savings estimates should be clearly labelled as ESTIMATED")
 
-    recommendation_safe = len(checks_failed) == 0
-    confidence = max(0.3, 1.0 - len(checks_failed) * 0.2 - len(missing_evidence) * 0.1)
+    recommendation_safe = not (
+        checks_failed or missing_evidence or unsupported_claims or contradictions
+    )
+    confidence = 0.5 if recommendation_safe else 0.0  # checklist score, not calibrated probability
 
     validation = ValidationReport(
         checks_passed=checks_passed,
@@ -509,13 +643,15 @@ async def run_critic_agent(
         decision = DecisionOutcome.reject
         rationale = f"Critic rejected: {'; '.join(checks_failed[:3])}"
     elif recommendations:
-        decision = DecisionOutcome.approve
-        rationale = f"{len(recommendations)} recommendations passed critic validation with confidence {confidence:.2f}"
+        decision = DecisionOutcome.investigate
+        rationale = f"{len(recommendations)} recommendations require human investigation; checklist score {confidence:.2f}"
     else:
         decision = DecisionOutcome.investigate
         rationale = "No actionable recommendations found. Further investigation recommended."
 
-    evidence_summary = checks_passed[:5] + ([f"WARNINGS: {'; '.join(checks_failed[:2])}"] if checks_failed else [])
+    evidence_summary = checks_passed[:5] + (
+        [f"WARNINGS: {'; '.join(checks_failed[:2])}"] if checks_failed else []
+    )
     top_rec_id = recommendations[0].id if recommendations else None
 
     final_decision = FinalDecision(
@@ -527,7 +663,7 @@ async def run_critic_agent(
         confidence=round(confidence, 3),
         validated_by_critic=True,
         human_action=None,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
 
     critic_evidence = {
@@ -540,11 +676,11 @@ async def run_critic_agent(
 
     explanation = await llm.explain(
         critic_evidence,
-        "You are the critic agent. Provide a final validation summary. Be direct about any issues."
+        "You are the critic agent. Provide a final validation summary. Be direct about any issues.",
     )
 
-    run.status = AgentStatus.succeeded
-    run.completed_at = datetime.utcnow()
+    run.status = AgentStatus.degraded if getattr(llm, "degraded", False) else AgentStatus.succeeded
+    run.completed_at = utcnow()
     run.duration_seconds = (run.completed_at - run.started_at).total_seconds()
     run.confidence = confidence
     run.output_summary = {
@@ -558,37 +694,25 @@ async def run_critic_agent(
 
 async def run_pipeline(
     dataset_id: str,
-    llm: Optional[LLMProvider] = None,
+    llm: LLMProvider | None = None,
 ) -> PipelineRunDetail:
     """Run the full 7-agent dependent pipeline for a dataset."""
     if llm is None:
         llm = get_llm_provider()
 
     pipeline_run_id = str(uuid.uuid4())
-    started_at = datetime.utcnow()
+    started_at = utcnow()
     agent_runs = []
 
     # Pre-compute deterministic inputs
-    from .ingestion import validate_focus_data
-    from .db import get_duck
-    from .config import get_settings
-    from pathlib import Path
-    import pandas as pd
-    from .schemas import FocusVersion
 
+    import pandas as pd
+
+    from .ingestion import validate_focus_data
+    from .schemas import FocusVersion
     from .storage import download_dataset_parquet
-    try:
-        parquet_path = download_dataset_parquet(dataset_id)
-    except (FileNotFoundError, Exception) as e:
-        return PipelineRunDetail(
-            id=pipeline_run_id,
-            dataset_id=dataset_id,
-            status=AgentStatus.failed,
-            started_at=started_at,
-            completed_at=datetime.utcnow(),
-            agent_runs=[],
-            final_decision=None,
-        )
+
+    parquet_path = download_dataset_parquet(dataset_id)
 
     # Load data for validation
     df = pd.read_parquet(parquet_path)
@@ -605,7 +729,7 @@ async def run_pipeline(
             dataset_id=dataset_id,
             status=AgentStatus.failed,
             started_at=started_at,
-            completed_at=datetime.utcnow(),
+            completed_at=utcnow(),
             agent_runs=agent_runs,
             final_decision=None,
         )
@@ -617,7 +741,9 @@ async def run_pipeline(
 
     # Agent 3: Anomaly Investigation
     anomaly_report = run_anomaly_detection(dataset_id)
-    anom_run = await run_anomaly_investigation_agent(pipeline_run_id, anomaly_report, attribution, llm)
+    anom_run = await run_anomaly_investigation_agent(
+        pipeline_run_id, anomaly_report, attribution, llm
+    )
     agent_runs.append(anom_run)
 
     # Agent 4: Opportunity
@@ -626,16 +752,21 @@ async def run_pipeline(
     agent_runs.append(opp_run)
 
     # Agent 5: Optimization
-    opt_run, recommendations = await run_optimization_agent(pipeline_run_id, opp_report, attribution, llm)
+    opt_run, recommendations = await run_optimization_agent(
+        pipeline_run_id, opp_report, attribution, llm
+    )
     agent_runs.append(opt_run)
 
     # Agent 6: Savings
-    sav_run, savings_estimates = await run_savings_agent(pipeline_run_id, recommendations, opp_report, llm)
+    sav_run, savings_estimates = await run_savings_agent(
+        pipeline_run_id, recommendations, opp_report, llm
+    )
     agent_runs.append(sav_run)
 
     # Agent 7: Critic
     all_outputs = {
         "data_quality_passed": is_usable,
+        "evidence_by_opportunity": {o.id: o.evidence for o in opp_report.opportunities},
         "savings_note": "ESTIMATED SAVINGS",
         "total_estimated_savings": sum(e.estimated_savings for e in savings_estimates),
     }
@@ -647,9 +778,13 @@ async def run_pipeline(
     return PipelineRunDetail(
         id=pipeline_run_id,
         dataset_id=dataset_id,
-        status=AgentStatus.succeeded,
+        status=AgentStatus.degraded if getattr(llm, "degraded", False) else AgentStatus.succeeded,
         started_at=started_at,
-        completed_at=datetime.utcnow(),
+        completed_at=utcnow(),
         agent_runs=agent_runs,
         final_decision=final_decision,
+        recommendations=recommendations,
+        savings_estimates=savings_estimates,
+        validation=validation,
+        llm_usage=getattr(llm, "usage", {"calls": 0, "provider": "offline"}),
     )

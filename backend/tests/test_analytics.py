@@ -3,41 +3,48 @@ Unit tests for deterministic cost analytics.
 
 SYNTHETIC TEST FIXTURE — NOT REAL BILLING DATA.
 """
+
+import os
+import tempfile
+from datetime import datetime, timedelta
+
 import pandas as pd
 import pytest
-from pathlib import Path
-from datetime import datetime, timedelta
-import tempfile
-import os
-
-from app.analytics import get_spend_summary, get_spend_trend, get_cost_drivers, get_resource_breakdown
-
+from app.analytics import (
+    get_cost_drivers,
+    get_resource_breakdown,
+    get_spend_summary,
+    get_spend_trend,
+)
 
 # ── SYNTHETIC TEST FIXTURE (labelled) ─────────────────────────────────────────
+
 
 def make_synthetic_focus_df(n_days=60, n_services=3) -> pd.DataFrame:
     """
     SYNTHETIC TEST FIXTURE — NOT REAL BILLING DATA.
-        """
+    """
     rows = []
     base = datetime(2024, 1, 1)
     services = [f"service_{i}" for i in range(n_services)]
     for day in range(n_days):
         dt = base + timedelta(days=day)
         for svc in services:
-            rows.append({
-                "billed_cost": 100.0 + day * 0.5 + (50.0 if svc == "service_0" else 0),
-                "effective_cost": 95.0 + day * 0.5,
-                "charge_period_start": dt,
-                "charge_period_end": dt + timedelta(days=1),
-                "currency": "USD",
-                "provider": "TestProvider",
-                "account": "test_account",
-                "service": svc,
-                "region": "us-east-1",
-                "category": "Compute",
-                "resource": f"resource_{svc}",
-            })
+            rows.append(
+                {
+                    "billed_cost": 100.0 + day * 0.5 + (50.0 if svc == "service_0" else 0),
+                    "effective_cost": 95.0 + day * 0.5,
+                    "charge_period_start": dt,
+                    "charge_period_end": dt + timedelta(days=1),
+                    "currency": "USD",
+                    "provider": "TestProvider",
+                    "account": "test_account",
+                    "service": svc,
+                    "region": "us-east-1",
+                    "category": "Compute",
+                    "resource": f"resource_{svc}",
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -47,13 +54,13 @@ def synthetic_parquet(monkeypatch):
     fd, path = tempfile.mkstemp(suffix=".parquet")
     os.close(fd)
     df.to_parquet(path)
-    
+
     # Mock _get_parquet_path to return our temp file
     monkeypatch.setattr("app.analytics._get_parquet_path", lambda dataset_id: path)
-    
+
     # We must ensure DuckDB can read it. DuckDB runs in the same process.
     yield path
-    
+
     os.remove(path)
 
 
@@ -87,7 +94,12 @@ def test_get_cost_drivers(synthetic_parquet):
     """Test actual application logic for finding top cost drivers."""
     drivers = get_cost_drivers("test_dataset_id")
     assert len(drivers.top_drivers) > 0
-    assert drivers.top_drivers[0].dimension in ["provider", "account", "service", "region"]
+    assert drivers.top_drivers[0].dimension in [
+        "provider",
+        "account",
+        "service",
+        "region",
+    ]
     assert drivers.total_cost > 0
 
 

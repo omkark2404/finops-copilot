@@ -3,9 +3,11 @@ Unit tests for forecasting.
 
 SYNTHETIC TEST FIXTURE — NOT REAL BILLING DATA.
 """
+
+from datetime import datetime, timedelta
+
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
 import pytest
 
 
@@ -21,6 +23,7 @@ def make_trend_series(n=80, base=1000.0, growth=5.0) -> pd.Series:
 
 def test_naive_forecast_returns_last_value():
     from app.forecasting import naive_forecast
+
     series = make_trend_series(30)
     result = naive_forecast(series, horizon=7)
     assert len(result.points) == 7
@@ -30,6 +33,7 @@ def test_naive_forecast_returns_last_value():
 
 def test_moving_average_forecast():
     from app.forecasting import moving_average_forecast
+
     series = make_trend_series(30)
     result = moving_average_forecast(series, horizon=7, window=7)
     assert len(result.points) == 7
@@ -38,6 +42,7 @@ def test_moving_average_forecast():
 
 def test_evaluate_metrics():
     from app.forecasting import _evaluate
+
     actual = np.array([100.0, 110.0, 120.0, 130.0])
     pred = np.array([105.0, 115.0, 125.0, 135.0])
     metrics = _evaluate(actual, pred)
@@ -52,6 +57,7 @@ def test_evaluate_metrics():
 def test_no_future_leakage():
     """Verify features are only computed from past data."""
     from app.forecasting import exp_smoothing_forecast
+
     series = make_trend_series(80)
     result = exp_smoothing_forecast(series, horizon=10)
     assert result.training_period is not None

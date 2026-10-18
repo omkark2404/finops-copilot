@@ -1,24 +1,28 @@
 'use client'
+import type {QualityReport} from '@/lib/types'
 import { useEffect, useState } from 'react'
 import Layout from '@/components/Layout'
 import PageHeader from '@/components/PageHeader'
 import DatasetSelector from '@/components/DatasetSelector'
 import { api } from '@/lib/api'
 import { useDataset } from '@/lib/useDataset'
-import { Shield, CheckCircle, AlertTriangle, XCircle } from 'lucide-react'
+import { Shield, AlertTriangle, XCircle } from 'lucide-react'
 
 export default function DataQualityPage() {
   const { datasetId } = useDataset()
-  const [report, setReport] = useState<any | null>(null)
+  const [report, setReport] = useState<QualityReport | null>(null)
   const [loading, setLoading] = useState(false)
 
+  const [requestError, setRequestError] = useState<string | null>(null)
   useEffect(() => {
+    let active = true
+    setReport(null); setRequestError(null)
     if (!datasetId) return
     setLoading(true)
-    api.dataQuality(datasetId)
-      .then(setReport)
-      .catch(console.error)
-      .finally(() => setLoading(false))
+    api.dataQuality(datasetId).then(value => {if (active) setReport(value)})
+      .catch(e => {if (active) setRequestError(e.message)})
+      .finally(() => {if (active) setLoading(false)})
+    return () => {active = false}
   }, [datasetId])
 
   return (
@@ -30,6 +34,7 @@ export default function DataQualityPage() {
           actions={<DatasetSelector />}
         />
 
+        {requestError && <p role="alert" className="request-error">{requestError}</p>}
         {loading && <div className="skeleton" style={{ height: 300, borderRadius: 12 }} />}
 
         {!loading && report && (
@@ -81,7 +86,7 @@ export default function DataQualityPage() {
           </>
         )}
 
-        {!loading && !report && (
+        {!loading && !requestError && !report && (
           <div className="empty-state card" style={{ padding: 64 }}>
             <Shield size={32} />
             <span>No data quality report available for this dataset</span>

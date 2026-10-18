@@ -1,0 +1,49 @@
+name: Verify prototype
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      APP_ENV: test
+      USE_LOCAL_SQLITE: "true"
+      DATA_DIR: /tmp/finops-ci-data
+      JWT_SECRET_KEY: ci-only-secret-not-for-a-deployment-123
+      ADMIN_EMAIL: admin@test.local
+      ADMIN_PASSWORD: ci-only-password-not-for-a-deployment
+      GEMINI_API_KEY: ""
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: python -m venv backend/.venv && backend/.venv/bin/pip install -r backend/requirements-dev.txt
+      - run: backend/.venv/bin/ruff check backend/app backend/tests backend/migrations backend/run_evaluation.py backend/verify_integration.py backend/verify_live_gemini.py backend/evaluate_public_sample.py scripts
+      - run: backend/.venv/bin/ruff format --check backend/app backend/tests backend/migrations backend/run_evaluation.py backend/verify_integration.py backend/verify_live_gemini.py backend/evaluate_public_sample.py scripts
+      - run: .venv/bin/pytest tests/ -q
+        working-directory: backend
+      - run: backend/.venv/bin/pip-audit -r backend/requirements.txt
+      - run: npm ci
+        working-directory: frontend
+      - run: npm audit
+        working-directory: frontend
+      - run: npm run lint && npm run typecheck && npm run build
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium && npm test
+        working-directory: frontend
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: browser-test-failure
+          path: frontend/test-results/
